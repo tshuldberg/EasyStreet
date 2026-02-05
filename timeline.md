@@ -623,3 +623,91 @@ These tasks are independent and can be parallelized:
 - [2026-02-04-android-feature-parity-design.md](docs/plans/2026-02-04-android-feature-parity-design.md)
 
 ---
+
+## 2026-02-05 - Getting Started Guide for New Mac Contributors
+
+**Session Type**: Documentation
+**Duration**: ~15 minutes
+**Participants**: Trey Shuldberg, Claude Code (AI Assistant)
+**Commits**: `4377e18`
+
+### Objectives
+- Create a step-by-step onboarding guide for new Mac users joining the project
+- Cover full environment setup from zero to running code
+- Document best practices for working with Claude Code on this project
+
+### Technical Details
+
+#### Files Created
+1. **[docs/getting-started.md](docs/getting-started.md)** (386 lines, NEW FILE)
+   - Comprehensive onboarding guide targeting macOS users with no prior setup
+   - 8 sequential setup steps plus best practices and troubleshooting sections
+
+#### Guide Contents
+
+**Setup Steps (1-7):**
+1. Homebrew installation and verification
+2. Git installation + SSH key generation for GitHub authentication
+3. Repo cloning with verification commands
+4. Xcode installation and iOS project setup
+5. Android Studio installation, SDK path config, and Google Maps API key setup
+6. Node.js installation (prerequisite for Claude Code)
+7. Claude Code installation via npm and first-launch walkthrough
+
+**Project Orientation (Step 8):**
+- Directory structure overview
+- Recommended reading order: `README.md` > `timeline.md` > `.claude/CLAUDE.md`
+
+**Best Practices (14 items):**
+1. Read `timeline.md` at session start for context
+2. Work on feature branches, not `master`/`main`
+3. State goals clearly and specifically
+4. Let Claude read files before modifying them
+5. Request plans for multi-file changes
+6. Review diffs before committing
+7. Run tests after changes
+8. Update `timeline.md` after every session
+9. Follow commit message format (`Category: Brief description`)
+10. Never commit secrets (API keys, keystores, `local.properties`)
+11. Use slash commands (`/help`, `/clear`)
+12. Be direct about mistakes
+13. Break large tasks into incremental steps
+14. Use Claude for code review
+
+**Quick Reference Tables:**
+- Common commands (build, test, git) for both platforms
+- Key files with their purposes
+
+**Troubleshooting Section (5 issues):**
+- `xcrun` invalid developer path fix
+- Gradle SDK location not found
+- `gradlew` permission denied
+- Claude Code authentication
+- Git push rejected (collaborator access)
+
+### Decisions Made
+
+1. **Placed in `docs/` directory** (not project root)
+   - Reasoning: Keeps root clean; `docs/` already holds plans and design docs
+   - Consistent with existing documentation structure
+
+2. **SSH over HTTPS for Git authentication**
+   - Reasoning: More secure, no password prompts, matches the repo's existing `git@github.com` remote URL
+
+3. **Targeted macOS specifically** (as requested)
+   - The project already has Windows contributors; this guide fills the Mac onboarding gap
+
+### Testing & Verification
+- Verified guide covers all prerequisites from `CLAUDE.md` and `README.md`
+- Confirmed repo remote URL matches clone instructions
+- Confirmed `.gitignore` entries align with secrets guidance in the guide
+
+### Next Steps
+- Continue with Android implementation Tasks 2-5 (foundation layer)
+- See previous timeline entry for full task breakdown
+
+### References
+- Commit: `4377e18`
+- [docs/getting-started.md](docs/getting-started.md)
+
+---
