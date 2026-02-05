@@ -1,8 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.22" // Or latest Kotlin version
-    id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin") version "2.0.1" apply false // For API key management
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 android {
@@ -78,8 +77,8 @@ dependencies {
     // ViewModel for Compose
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
 
-    // Navigation for Compose
-    implementation("androidx.navigation:navigation-compose:2.7.7")
+    // WorkManager
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
