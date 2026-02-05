@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.yourdomain.easystreetandroid"
+    namespace = "com.easystreet.android"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.yourdomain.easystreetandroid"
+        applicationId = "com.easystreet.android"
         minSdk = 24 // Android 7.0 Nougat
         targetSdk = 34
         versionCode = 1
@@ -31,6 +31,7 @@ android {
         }
     }
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
