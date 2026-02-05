@@ -1,0 +1,37 @@
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# iOS / Xcode
+EasyStreet/xcuserdata/
+EasyStreet/*.xcworkspace/xcuserdata/
+*.xcuserstate
+build/
+DerivedData/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Android
+EasyStreet_Android/.gradle/
+EasyStreet_Android/build/
+EasyStreet_Android/app/build/
+EasyStreet_Android/local.properties
+*.apk
+*.aab
+
+# IDE
+.idea/
+*.iml
+
+# Secrets
+*.keystore
+*.jks
+google-services.json
+gradle.properties
+
+# Claude Code
+.claude/settings.local.json
