@@ -73,7 +73,8 @@ class SweepingRuleEngineTest {
             LocalDateTime.of(2026, 2, 10, 10, 0),
         )
         assertNotNull(next)
-        assertEquals(LocalDateTime.of(2026, 2, 16, 9, 0), next)
+        // Feb 16 is Presidents' Day — skipped since holidaysObserved=false
+        assertEquals(LocalDateTime.of(2026, 2, 23, 9, 0), next)
     }
 
     @Test
