@@ -451,3 +451,175 @@
 - [Sprint 1 Plan](.claude/plans/scalable-knitting-pixel.md)
 
 ---
+
+## 2026-02-04 / 2026-02-05 - Android Implementation Plan & Project Scaffolding
+
+**Session Type**: Planning & Development
+**Duration**: ~1.5 hours
+**Participants**: Trey Shuldberg, Claude Code (AI Assistant)
+**Commits**: `5a0b473`, `cdf4bec`
+
+### Objectives
+- Create a detailed 14-task Android implementation plan with full code specifications
+- Begin execution: scaffold the Android project with Gradle wrapper, resources, and build configuration
+
+### Technical Details
+
+#### Commit `5a0b473` — Android Implementation Plan (14 Tasks)
+
+Created a comprehensive, task-by-task implementation plan for porting the iOS MVP to Android with full feature parity plus two key improvements:
+1. Full 37K-row dataset via bundled SQLite (instead of 2-street sample data)
+2. Dynamic holiday calculation (replacing iOS's hardcoded 2023 holidays)
+
+**File Created:**
+1. **[docs/plans/2026-02-04-android-implementation-plan.md](docs/plans/2026-02-04-android-implementation-plan.md)** (2,288 lines)
+   - 14 detailed tasks with step-by-step instructions, code snippets, and commit messages
+   - Test-driven development approach (write failing tests first, then implement)
+   - Task dependency graph and critical path identified
+   - Architecture: MVVM with Jetpack Compose, SQLite for street data, SharedPreferences for parking state
+
+**Task Breakdown in Plan:**
+| Task | Description | Tests | Status |
+|------|-------------|-------|--------|
+| 1 | Project scaffolding (Gradle, resources) | Build check | **DONE** |
+| 2 | CSV → SQLite converter script (Python) | Manual verify | Pending |
+| 3 | Domain models (SweepingRule, StreetSegment, ParkedCar, SweepingStatus) | 3 unit tests | Pending |
+| 4 | HolidayCalculator (dynamic, any year) | 8 unit tests | Pending |
+| 5 | SweepingRuleEngine (status evaluation) | 7 unit tests | Pending |
+| 6 | SQLite database layer (StreetDatabase, StreetDao) | Via integration | Pending |
+| 7 | Parking persistence & repositories | — | Pending |
+| 8 | Notification system (WorkManager) | — | Pending |
+| 9 | Application class & MainActivity shell | Build check | Pending |
+| 10 | MapViewModel | — | Pending |
+| 11 | MapScreen Compose UI | Build check | Pending |
+| 12 | Marker drag for pin adjustment | Build check | Pending |
+| 13 | Notification permission (API 33+) | Build check | Pending |
+| 14 | Final integration & build verification | All tests + build | Pending |
+
+#### Commit `cdf4bec` — Android Project Scaffolding (Task 1 Complete)
+
+Scaffolded the Android project with all build infrastructure needed for development.
+
+**Files Modified:**
+1. **[EasyStreet_Android/app/build.gradle.kts](EasyStreet_Android/app/build.gradle.kts)** (7 line changes)
+   - Added WorkManager dependency: `androidx.work:work-runtime-ktx:2.9.0`
+   - Removed `navigation-compose` dependency (not needed per design)
+   - Cleaned up secrets plugin application
+
+**Files Created:**
+2. **[EasyStreet_Android/build.gradle.kts](EasyStreet_Android/build.gradle.kts)** — Project-level build file with AGP 8.2.2, Kotlin 1.9.22, serialization plugin
+3. **[EasyStreet_Android/settings.gradle.kts](EasyStreet_Android/settings.gradle.kts)** — Plugin management, dependency resolution, root project name
+4. **[EasyStreet_Android/gradle.properties](EasyStreet_Android/gradle.properties)** — JVM args, AndroidX enabled, Kotlin code style
+5. **[EasyStreet_Android/gradlew](EasyStreet_Android/gradlew)** — Gradle wrapper script (Unix)
+6. **[EasyStreet_Android/gradlew.bat](EasyStreet_Android/gradlew.bat)** — Gradle wrapper script (Windows)
+7. **[EasyStreet_Android/gradle/wrapper/gradle-wrapper.jar](EasyStreet_Android/gradle/wrapper/gradle-wrapper.jar)** — Gradle 8.4 wrapper JAR
+8. **[EasyStreet_Android/gradle/wrapper/gradle-wrapper.properties](EasyStreet_Android/gradle/wrapper/gradle-wrapper.properties)** — Gradle 8.4 distribution URL
+9. **[EasyStreet_Android/app/src/main/res/values/strings.xml](EasyStreet_Android/app/src/main/res/values/strings.xml)** — App name string resource
+10. **[EasyStreet_Android/app/src/main/res/values/themes.xml](EasyStreet_Android/app/src/main/res/values/themes.xml)** — Material Light NoActionBar theme
+11. **[EasyStreet_Android/app/src/main/res/xml/data_extraction_rules.xml](EasyStreet_Android/app/src/main/res/xml/data_extraction_rules.xml)** — Cloud backup rules
+12. **[EasyStreet_Android/app/src/main/res/xml/backup_rules.xml](EasyStreet_Android/app/src/main/res/xml/backup_rules.xml)** — Full backup content rules
+
+### Decisions Made
+
+1. **SQLite over JSON** for Android street data storage
+   - Reasoning: Enables fast viewport-based spatial queries with bounding box index
+   - Trade-off: Requires a one-time Python conversion script (Task 2)
+
+2. **Python script for CSV→SQLite** (not Kotlin/Gradle task)
+   - Reasoning: Python has built-in CSV and SQLite support, zero build dependencies
+   - Output committed to `assets/` — runs once offline, not on device
+
+3. **Package namespace**: `com.easystreet` (simplified from `com.yourdomain.easystreetandroid`)
+   - Reasoning: Cleaner imports, shorter package declarations
+
+4. **Single MapScreen** instead of multi-screen navigation
+   - Reasoning: All functionality fits on one screen with conditional Compose state
+   - No navigation library needed, reducing complexity
+
+### Testing & Verification
+- Task 1 scaffold verified via Gradle wrapper generation
+- No unit tests yet (first tests come in Task 3)
+
+### Current Project State Summary
+
+**iOS App** — MVP ~80% complete, unchanged since initial commit
+- 6 Swift source files, fully functional map with parking features
+- Critical blockers remain: hardcoded 2023 holidays, only 2 sample streets loaded
+
+**Android App** — Task 1 of 14 complete (scaffolding only)
+- Build infrastructure ready (Gradle 8.4, AGP 8.2.2, Kotlin 1.9.22)
+- All dependencies configured (Compose, Google Maps, WorkManager, kotlinx.serialization)
+- No Kotlin source files yet (implementation starts at Task 2)
+
+**Documentation** — Comprehensive
+- Design doc: [2026-02-04-android-feature-parity-design.md](docs/plans/2026-02-04-android-feature-parity-design.md)
+- Implementation plan: [2026-02-04-android-implementation-plan.md](docs/plans/2026-02-04-android-implementation-plan.md)
+- Sprint 1 plan: `.claude/plans/scalable-knitting-pixel.md`
+
+### Next Steps
+
+#### Immediate Priority — Android Implementation (Tasks 2-5, Foundation)
+
+These tasks are independent and can be parallelized:
+
+1. **Task 2: CSV → SQLite Converter Script**
+   - Create `EasyStreet_Android/tools/csv_to_sqlite.py`
+   - Run against `Street_Sweeping_Schedule_20250508.csv` to generate `easystreet.db`
+   - Output goes to `app/src/main/assets/easystreet.db`
+   - Blocks: Task 6 (database layer)
+
+2. **Task 3: Domain Models (Pure Kotlin)**
+   - Create `SweepingRule.kt`, `StreetSegment.kt`, `ParkedCar.kt`, `SweepingStatus.kt`
+   - Write `SweepingRuleTest.kt` (3 unit tests for `appliesTo()`)
+   - Blocks: Tasks 5, 6, 7
+
+3. **Task 4: HolidayCalculator**
+   - Create `HolidayCalculator.kt` with dynamic holiday computation
+   - Write `HolidayCalculatorTest.kt` (8 unit tests)
+   - Blocks: Task 5
+
+4. **Task 5: SweepingRuleEngine**
+   - Port iOS business logic to Kotlin
+   - Write `SweepingRuleEngineTest.kt` (7 unit tests)
+   - Depends on: Tasks 3, 4
+
+#### Second Wave — Data & Persistence (Tasks 6-8)
+
+5. **Task 6: SQLite Database Layer** — `StreetDatabase.kt`, `StreetDao.kt`
+6. **Task 7: Parking Persistence** — `ParkingPreferences.kt`, `ParkingRepository.kt`, `StreetRepository.kt`
+7. **Task 8: Notification System** — `NotificationScheduler.kt`, `SweepingNotificationWorker.kt`
+
+#### Third Wave — UI (Tasks 9-13)
+
+8. **Task 9: Application Class & MainActivity Shell**
+9. **Task 10: MapViewModel**
+10. **Task 11: MapScreen Compose UI** (largest task)
+11. **Task 12: Marker Drag** for pin adjustment
+12. **Task 13: Notification Permission** (API 33+)
+
+#### Final — Task 14: Integration & Build Verification
+
+#### iOS Critical Fixes (Parallel Track)
+- Replace hardcoded 2023 holidays in `SweepingRuleEngine.swift` (lines 13-25)
+- Integrate full 37K-row dataset (currently only 2 sample streets)
+- Add XCTest coverage for business logic
+
+### References
+
+**Commits:**
+- `5a0b473` — docs: add Android feature-parity implementation plan (14 tasks)
+- `cdf4bec` — feat(android): scaffold project with Gradle wrapper, resources, and WorkManager dep
+
+**Files Created/Modified:**
+- [docs/plans/2026-02-04-android-implementation-plan.md](docs/plans/2026-02-04-android-implementation-plan.md)
+- [EasyStreet_Android/build.gradle.kts](EasyStreet_Android/build.gradle.kts)
+- [EasyStreet_Android/settings.gradle.kts](EasyStreet_Android/settings.gradle.kts)
+- [EasyStreet_Android/gradle.properties](EasyStreet_Android/gradle.properties)
+- [EasyStreet_Android/app/build.gradle.kts](EasyStreet_Android/app/build.gradle.kts)
+- [EasyStreet_Android/app/src/main/res/values/strings.xml](EasyStreet_Android/app/src/main/res/values/strings.xml)
+- [EasyStreet_Android/app/src/main/res/values/themes.xml](EasyStreet_Android/app/src/main/res/values/themes.xml)
+
+**Design Document:**
+- [2026-02-04-android-feature-parity-design.md](docs/plans/2026-02-04-android-feature-parity-design.md)
+
+---
