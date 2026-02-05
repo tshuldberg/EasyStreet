@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.easystreet"
-        minSdk = 24 // Android 7.0 Nougat
+        minSdk = 26 // Android 8.0 Oreo (java.time built-in)
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -31,7 +31,6 @@ android {
         }
     }
     compileOptions {
-        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
@@ -81,8 +80,9 @@ dependencies {
     // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 
-    // Core library desugaring for java.time on API < 26
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+
+    // Core library desugaring
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
