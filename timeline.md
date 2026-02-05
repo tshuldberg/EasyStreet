@@ -4,6 +4,88 @@
 
 ---
 
+## 2026-02-05 - Android Sprint 2: UI Layer Implementation (Tasks 10-14)
+
+**Session Type**: Development
+**Duration**: ~15 minutes
+**Participants**: Trey Shuldberg, Claude Code (AI Assistant) with 2 parallel dev agents
+**Commits**: `11cb652`
+
+### Objectives
+- Complete the Android UI layer: MapViewModel, MapScreen, and wire up MainActivity
+- Combine Tasks 11+12+13 into a single complete MapScreen with all features
+- Build verification with all tests passing
+
+### Approach
+
+Dispatched two developers in parallel:
+- **Dev A**: MapScreen.kt (Tasks 11+12+13 combined — full UI with drag + notification permission)
+- **Dev B**: MapViewModel.kt (Task 10) + MainActivity.kt update
+
+### Technical Details
+
+#### Files Created
+1. **[MapViewModel.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/ui/MapViewModel.kt)** (108 lines)
+   - `AndroidViewModel` with viewport-debounced segment queries (300ms)
+   - `parkCar()`, `updateParkingLocation()`, `clearParking()` actions
+   - Evaluates sweeping status via `SweepingRuleEngine` and schedules notifications
+   - Exposes `visibleSegments` and `sweepingStatus` as `StateFlow`
+
+2. **[MapScreen.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/ui/MapScreen.kt)** (330 lines)
+   - Google Maps centered on SF (37.7749, -122.4194) with `maps-compose`
+   - Color-coded `Polyline` overlays: red (Imminent/Today), green (Safe/Upcoming), gray (NoData)
+   - Draggable parking marker using `MarkerState.dragState` observation
+   - Address search via `Geocoder`
+   - "I Parked Here" button with `POST_NOTIFICATIONS` permission request on API 33+
+   - `ParkingInfoCard` composable with formatted time display
+
+#### Files Modified
+3. **[MainActivity.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/MainActivity.kt)** — Replaced placeholder text with `MapScreen()` composable
+
+### Issues Found & Fixed
+
+1. **`MarkerInfoWindow.onMarkerDragEnd` doesn't exist in maps-compose 4.3.3** — The implementation plan specified a callback parameter that doesn't exist in this library version. Fixed by observing `MarkerState.dragState` via `LaunchedEffect` instead. When `dragState == DragState.END`, calls `viewModel.updateParkingLocation()`.
+
+### Testing & Verification
+
+**Verified (evidence from this session):**
+- `gradlew test`: 18/18 tests pass (3 model + 8 holiday + 7 engine)
+- `gradlew assembleDebug`: BUILD SUCCESSFUL, debug APK generated
+- Kotlin compilation: all 18 source files compile cleanly
+
+### Android Implementation Status
+
+All 14 tasks from the implementation plan are now **complete**:
+
+| Task | Description | Status |
+|------|-------------|--------|
+| 1 | Project scaffolding | Done (Sprint 0) |
+| 2 | CSV→SQLite converter | Done (Sprint 1) |
+| 3 | Domain models | Done (Sprint 1) |
+| 4 | HolidayCalculator | Done (Sprint 1) |
+| 5 | SweepingRuleEngine | Done (Sprint 1) |
+| 6 | SQLite database layer | Done (Sprint 1) |
+| 7 | Parking persistence | Done (Sprint 1) |
+| 8 | Notification system | Done (Sprint 1) |
+| 9 | App shell | Done (Sprint 1) |
+| 10 | MapViewModel | Done (Sprint 2) |
+| 11 | MapScreen UI | Done (Sprint 2) |
+| 12 | Marker drag | Done (Sprint 2) |
+| 13 | Notification permission | Done (Sprint 2) |
+| 14 | Build verification | Done (Sprint 2) |
+
+### Next Steps
+
+1. **Add Google Maps API key** to `AndroidManifest.xml` (replace `YOUR_KEY_HERE`)
+2. **Test on device/emulator** — verify map renders, parking flow works end-to-end
+3. **iOS critical fixes** — replace hardcoded 2023 holidays, integrate full dataset
+
+### References
+- Commit: `11cb652`
+- Implementation plan: [2026-02-04-android-implementation-plan.md](docs/plans/2026-02-04-android-implementation-plan.md)
+
+---
+
 ## 2026-02-04 - Sprint 1 Planning Session
 
 **Session Type**: Planning & Code Review
