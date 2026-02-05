@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.easystreet.android"
+    namespace = "com.easystreet"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.easystreet.android"
+        applicationId = "com.easystreet"
         minSdk = 24 // Android 7.0 Nougat
         targetSdk = 34
         versionCode = 1
@@ -80,6 +80,9 @@ dependencies {
 
     // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+    // Core library desugaring for java.time on API < 26
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
