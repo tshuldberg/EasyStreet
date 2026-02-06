@@ -102,6 +102,6 @@ def convert(csv_path, json_path):
 
 
 if __name__ == '__main__':
-    csv_path = sys.argv[1] if len(sys.argv) > 1 else 'EasyStreet/Street_Sweeping_Schedule_20250508.csv'
+    csv_path = sys.argv[1] if len(sys.argv) > 1 else 'EasyStreet/Street_Sweeping_Schedule_20260206.csv'
     json_path = sys.argv[2] if len(sys.argv) > 2 else 'EasyStreet/sweeping_data_sf.json'
     convert(csv_path, json_path)

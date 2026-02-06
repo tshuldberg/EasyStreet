@@ -15,7 +15,7 @@ EasyStreet/
 │   ├── Models/              # Data models
 │   ├── Controllers/         # View controllers
 │   ├── Utils/               # Business logic
-│   └── Street_Sweeping_Schedule_20250508.csv (7.3 MB)
+│   └── Street_Sweeping_Schedule_20260206.csv (9.2 MB)
 │
 └── EasyStreet_Android/      # Android Application (Kotlin + Compose)
     └── app/
@@ -106,15 +106,15 @@ cd EasyStreet_Android
 4. **SweepingStatus** - Enum: safe, today, imminent, upcoming, noData, unknown
 
 ### Street Data
-- **File:** `Street_Sweeping_Schedule_20250508.csv` (7.3 MB)
+- **File:** `Street_Sweeping_Schedule_20260206.csv` (9.2 MB)
 - **Format:** CSV with sweeping rules per street segment
 - **Sample Data:** Market Street, Mission Street (for MVP testing)
 - **Note:** Large file - load efficiently, consider streaming/chunking
 
 ### Holiday Handling
-- Currently hardcoded for 2023 in iOS implementation
-- Located in SweepingRuleEngine.swift
-- **TODO:** Update to dynamic/current year holidays before production
+- Dynamic calculation via HolidayCalculator.swift (11 SF public holidays)
+- Includes observed-date logic (Sat→Fri, Sun→Mon), Day-after-Thanksgiving
+- SFMTA enforces sweeping on Juneteenth (not included as holiday)
 
 ---
 
@@ -405,10 +405,10 @@ If user asks to "update timeline" or "document this session":
 
 ## Important Notes & Gotchas
 
-### Holiday Data (Critical)
-- **Holiday list is hardcoded for 2023** in SweepingRuleEngine.swift
-- Must be updated before production release
-- Affects sweeping schedule accuracy
+### Holiday Data
+- **Resolved:** Dynamic HolidayCalculator replaces hardcoded 2023 list
+- Calculates 11 SF public holidays for any year automatically
+- Includes observed-date shifting and Day-after-Thanksgiving
 
 ### Platform Status
 - **iOS:** MVP complete, full feature implementation
@@ -465,7 +465,7 @@ If user asks to "update timeline" or "document this session":
 - ✅ Notification scheduling (1-hour advance)
 - ✅ Street sweeping rule evaluation
 - ✅ Manual pin adjustment
-- ✅ SQLite database with 21,809 street segments
+- ✅ SQLite database with 37,856 street segments (Jan 2026 data)
 - ✅ Street detail bottom sheet
 - ✅ Parking status card
 
@@ -514,7 +514,7 @@ cd EasyStreet_Android
 ### View Street Data
 ```bash
 # View first 10 lines of street data
-head -n 10 EasyStreet/Street_Sweeping_Schedule_20250508.csv
+head -n 10 EasyStreet/Street_Sweeping_Schedule_20260206.csv
 ```
 
 ---

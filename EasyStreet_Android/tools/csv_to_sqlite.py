@@ -6,7 +6,7 @@ Usage:
     python csv_to_sqlite.py <input_csv> <output_db>
 
 Example:
-    python csv_to_sqlite.py ../../EasyStreet/Street_Sweeping_Schedule_20250508.csv ../app/src/main/assets/easystreet.db
+    python csv_to_sqlite.py ../../EasyStreet/Street_Sweeping_Schedule_20260206.csv ../app/src/main/assets/easystreet.db
 """
 import csv
 import json
