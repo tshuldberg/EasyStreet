@@ -35,6 +35,9 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     private val _sweepingStatus = MutableStateFlow<SweepingStatus>(SweepingStatus.NoData)
     val sweepingStatus: StateFlow<SweepingStatus> = _sweepingStatus.asStateFlow()
 
+    private val _selectedSegment = MutableStateFlow<StreetSegment?>(null)
+    val selectedSegment: StateFlow<StreetSegment?> = _selectedSegment.asStateFlow()
+
     private var viewportJob: Job? = null
 
     /**
@@ -93,6 +96,14 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
         parkingRepo.clearParking()
         _sweepingStatus.value = SweepingStatus.NoData
         NotificationScheduler.cancel(getApplication())
+    }
+
+    fun onStreetTapped(segment: StreetSegment) {
+        _selectedSegment.value = segment
+    }
+
+    fun dismissStreetSheet() {
+        _selectedSegment.value = null
     }
 
     private fun evaluateAndSchedule(segment: StreetSegment, streetName: String) {

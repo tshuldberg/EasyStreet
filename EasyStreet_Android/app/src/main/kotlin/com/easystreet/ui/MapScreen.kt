@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.easystreet.domain.engine.SweepingRuleEngine
+import com.easystreet.domain.model.StreetSegment
 import com.easystreet.domain.model.SweepingStatus
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -25,10 +26,12 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
+import java.time.Duration
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(viewModel: MapViewModel = viewModel()) {
     val context = LocalContext.current
@@ -46,6 +49,7 @@ fun MapScreen(viewModel: MapViewModel = viewModel()) {
 
     var searchQuery by remember { mutableStateOf("") }
     var showSearch by remember { mutableStateOf(false) }
+    val selectedSegment by viewModel.selectedSegment.collectAsState()
 
     // Location permission
     val hasLocationPermission = remember {
@@ -132,11 +136,18 @@ fun MapScreen(viewModel: MapViewModel = viewModel()) {
             val now = LocalDateTime.now()
             visibleSegments.forEach { segment ->
                 val status = SweepingRuleEngine.getStatus(segment.rules, segment.streetName, now)
+                val nextTime = SweepingRuleEngine.getNextSweepingTime(segment.rules, now)
                 val color = when (status) {
                     is SweepingStatus.Imminent -> Color.Red
                     is SweepingStatus.Today -> Color.Red
-                    is SweepingStatus.Upcoming -> Color.Green
-                    is SweepingStatus.Safe -> Color.Green
+                    is SweepingStatus.Upcoming -> {
+                        if (nextTime != null && Duration.between(now, nextTime).toHours() <= 48) {
+                            Color(0xFFFF9800) // Orange — within 48 hours
+                        } else {
+                            Color(0xFF4CAF50) // Green — more than 48 hours
+                        }
+                    }
+                    is SweepingStatus.Safe -> Color(0xFF4CAF50)
                     is SweepingStatus.NoData -> Color.Gray
                     is SweepingStatus.Unknown -> Color.Gray
                 }
@@ -145,6 +156,8 @@ fun MapScreen(viewModel: MapViewModel = viewModel()) {
                     points = segment.coordinates.map { LatLng(it.latitude, it.longitude) },
                     color = color,
                     width = 8f,
+                    clickable = true,
+                    onClick = { viewModel.onStreetTapped(segment) },
                 )
             }
 
@@ -265,6 +278,33 @@ fun MapScreen(viewModel: MapViewModel = viewModel()) {
             }
         }
     }
+
+    // Street info bottom sheet
+    if (selectedSegment != null) {
+        val segment = selectedSegment!!
+        ModalBottomSheet(
+            onDismissRequest = { viewModel.dismissStreetSheet() },
+            sheetState = rememberModalBottomSheetState(),
+        ) {
+            StreetInfoSheet(
+                segment = segment,
+                onParkHere = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        if (ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.POST_NOTIFICATIONS,
+                            ) != PackageManager.PERMISSION_GRANTED
+                        ) {
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }
+                    val midCoord = segment.coordinates[segment.coordinates.size / 2]
+                    viewModel.parkCar(midCoord.latitude, midCoord.longitude)
+                    viewModel.dismissStreetSheet()
+                },
+            )
+        }
+    }
 }
 
 @Composable
@@ -322,6 +362,99 @@ fun ParkingInfoCard(
             ) {
                 Text("Clear Parking")
             }
+        }
+    }
+}
+
+@Composable
+fun StreetInfoSheet(
+    segment: StreetSegment,
+    onParkHere: () -> Unit,
+) {
+    val now = LocalDateTime.now()
+    val status = SweepingRuleEngine.getStatus(segment.rules, segment.streetName, now)
+    val nextTime = SweepingRuleEngine.getNextSweepingTime(segment.rules, now)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .padding(bottom = 32.dp),
+    ) {
+        Text(
+            text = segment.streetName,
+            style = MaterialTheme.typography.headlineSmall,
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Next sweeping — color-coded
+        if (nextTime != null) {
+            val hoursUntil = Duration.between(now, nextTime).toHours()
+            val (label, labelColor) = when {
+                status is SweepingStatus.Imminent || status is SweepingStatus.Today -> {
+                    val t = nextTime.format(DateTimeFormatter.ofPattern("h:mm a"))
+                    "Sweeping today at $t" to Color.Red
+                }
+                hoursUntil <= 48 -> {
+                    val t = nextTime.format(DateTimeFormatter.ofPattern("EEE, MMM d 'at' h:mm a"))
+                    "Next sweeping: $t" to Color(0xFFFF9800)
+                }
+                else -> {
+                    val t = nextTime.format(DateTimeFormatter.ofPattern("EEE, MMM d 'at' h:mm a"))
+                    "Next sweeping: $t" to Color(0xFF4CAF50)
+                }
+            }
+            Text(text = label, color = labelColor, style = MaterialTheme.typography.bodyLarge)
+        } else {
+            Text(
+                text = "No upcoming sweeping scheduled",
+                color = Color.Gray,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider()
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text("Weekly Schedule", style = MaterialTheme.typography.titleMedium)
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (segment.rules.isEmpty()) {
+            Text("No sweeping rules on file", color = Color.Gray)
+        } else {
+            segment.rules.sortedBy { it.dayOfWeek }.forEach { rule ->
+                val day = rule.dayOfWeek.getDisplayName(
+                    java.time.format.TextStyle.FULL,
+                    Locale.getDefault(),
+                )
+                val start = rule.startTime.format(DateTimeFormatter.ofPattern("h:mm a"))
+                val end = rule.endTime.format(DateTimeFormatter.ofPattern("h:mm a"))
+                val week = when (rule.weekOfMonth) {
+                    0 -> "every week"
+                    1 -> "1st week"
+                    2 -> "2nd week"
+                    3 -> "3rd week"
+                    4 -> "4th week"
+                    else -> "week ${rule.weekOfMonth}"
+                }
+                Text(
+                    text = "$day  $start \u2013 $end  ($week)",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(vertical = 2.dp),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Button(
+            onClick = onParkHere,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+        ) {
+            Text("Park Here")
         }
     }
 }
