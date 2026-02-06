@@ -6,6 +6,8 @@
     "superpowers@claude-plugins-official": true,
     "claude-code-setup@claude-plugins-official": true,
     "claude-md-management@claude-plugins-official": true,
-    "dev-browser@dev-browser-marketplace": true
+    "dev-browser@dev-browser-marketplace": true,
+    "kotlin-lsp@claude-plugins-official": true,
+    "context7@claude-plugins-official": true
   }
 }
