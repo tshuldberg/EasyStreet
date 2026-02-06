@@ -50,7 +50,7 @@ class StreetDao(private val db: StreetDatabase) {
 
                 segments.add(
                     StreetSegment(
-                        id = segmentId,
+                        id = segmentId.toString(),
                         cnn = cnn,
                         streetName = streetName,
                         coordinates = coordinates,
@@ -64,7 +64,7 @@ class StreetDao(private val db: StreetDatabase) {
         return segments
     }
 
-    fun findNearestSegment(lat: Double, lng: Double, radiusDeg: Double = 0.001): StreetSegment? {
+    fun findNearestSegment(lat: Double, lng: Double, radiusDeg: Double = 0.005): StreetSegment? {
         val segments = getSegmentsInViewport(
             lat - radiusDeg, lat + radiusDeg,
             lng - radiusDeg, lng + radiusDeg,
@@ -101,7 +101,7 @@ class StreetDao(private val db: StreetDatabase) {
                         startTime = LocalTime.parse(startStr),
                         endTime = LocalTime.parse(endStr),
                         weekOfMonth = weekOfMonth,
-                        holidaysObserved = holidays == 1,
+                        appliesToHolidays = holidays == 1,
                     )
                 )
             }

@@ -41,9 +41,12 @@ class SweepingNotificationWorker(
             .setAutoCancel(true)
             .build()
 
+        // Use sweep time hash as unique notification ID so multiple alerts don't collide
+        val notificationId = sweepTimeMillis.hashCode()
+
         val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE)
             as NotificationManager
-        manager.notify(NOTIFICATION_ID, notification)
+        manager.notify(notificationId, notification)
 
         return Result.success()
     }
@@ -67,6 +70,5 @@ class SweepingNotificationWorker(
         const val KEY_STREET_NAME = "street_name"
         const val KEY_SWEEP_TIME = "sweep_time"
         private const val CHANNEL_ID = "sweeping_alerts"
-        private const val NOTIFICATION_ID = 1001
     }
 }

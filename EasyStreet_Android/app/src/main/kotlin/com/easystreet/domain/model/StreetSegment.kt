@@ -10,7 +10,7 @@ data class BoundingBox(
 )
 
 data class StreetSegment(
-    val id: Long,
+    val id: String,
     val cnn: Int,
     val streetName: String,
     val coordinates: List<LatLngPoint>,

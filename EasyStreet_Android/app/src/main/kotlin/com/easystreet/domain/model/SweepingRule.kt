@@ -11,7 +11,7 @@ data class SweepingRule(
     val startTime: LocalTime,
     val endTime: LocalTime,
     val weekOfMonth: Int, // 0 = every week, 1-5 = specific week
-    val holidaysObserved: Boolean,
+    val appliesToHolidays: Boolean,
 ) {
     fun appliesTo(date: LocalDate, isHoliday: Boolean = false): Boolean {
         if (date.dayOfWeek != dayOfWeek) return false
@@ -22,7 +22,7 @@ data class SweepingRule(
             if (week != weekOfMonth) return false
         }
 
-        if (!holidaysObserved && isHoliday) return false
+        if (!appliesToHolidays && isHoliday) return false
 
         return true
     }

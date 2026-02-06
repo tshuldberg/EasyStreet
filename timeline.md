@@ -4,6 +4,200 @@
 
 ---
 
+## 2026-02-06 - Android Cross-Platform Parity: 19 Variance Fixes Across 5 Phases
+
+**Session Type**: Development
+**Duration**: ~45 minutes
+**Participants**: Trey Shuldberg, Claude Code (AI Assistant)
+**Commits**: Pending (not yet committed)
+
+### Objectives
+Bring the Android app into full parity with the iOS app across 5 phases, fixing 19 variances identified by a 6-agent team analysis. iOS is the authoritative implementation; all changes are Android-side.
+
+### Technical Details
+
+#### Phase 1: Data Correctness (CRITICAL + HIGH)
+
+##### V-003: Fix Holiday Calculation (CRITICAL)
+1. **[HolidayCalculator.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/domain/engine/HolidayCalculator.kt)** (82 lines, REWRITTEN)
+   - **Removed Juneteenth** (Jun 19) — SFMTA enforces sweeping on this date
+   - **Added Day-after-Thanksgiving** — Friday after 4th Thursday of November
+   - **Added observed-date shifting** — Saturday holidays → Friday, Sunday → Monday. Applies to: New Year's, July 4th, Veterans Day, Christmas
+   - **Added cross-year boundary check** — `isHoliday()` now checks next year's holidays when in December (e.g., Jan 1 2028 Sat → observed Dec 31 2027)
+   - **Added caching** — `ConcurrentHashMap<Int, Set<LocalDate>>` via `cache.getOrPut(year)`, matching iOS pattern
+   - New private helper: `observedDate(date: LocalDate): LocalDate`
+   - Refactored from inline `setOf()` to `computeHolidays()` private method
+
+2. **[HolidayCalculatorTest.kt](EasyStreet_Android/app/src/test/kotlin/com/easystreet/domain/engine/HolidayCalculatorTest.kt)** (95 lines, REWRITTEN)
+   - Expanded from 7 tests to 12 tests
+   - Added: `july 4th 2026 is saturday so observed on friday july 3` — asserts Jul 3 IS holiday, Jul 4 is NOT
+   - Added: `day after thanksgiving is a holiday` — tests 2025/2026/2027
+   - Added: `juneteenth is NOT a holiday` — asserts Jun 19 returns false
+   - Added: `observed date shifting for christmas 2027` — Dec 25 Sat → Dec 24 Fri
+   - Added: `cross year boundary -- new years 2028 observed in dec 2027` — Dec 31 2027 IS holiday
+   - Added: `total holiday count is 11 per year` — validates 2025/2026/2027 all return exactly 11
+   - Updated: `july 4th is a holiday` test now correctly tests observed date (Jul 3 2026)
+
+##### V-004: Fix Parking Coordinate Precision (HIGH)
+3. **[ParkingPreferences.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/data/prefs/ParkingPreferences.kt)** (65 lines, REWRITTEN)
+   - `save()`: Replaced `putFloat(KEY_LAT, car.latitude.toFloat())` → `putLong(KEY_LAT, car.latitude.toRawBits())`
+   - `load()`: Replaced `getFloat(KEY_LAT, 0f).toDouble()` → `Double.fromBits(prefs.getLong(KEY_LAT, 0L))`
+   - Added `ClassCastException` fallback in `load()` for migration from old Float storage
+   - Added `notificationLeadMinutes` property (Int, default 60) with SharedPreferences backing
+   - `clear()` now preserves `notificationLeadMinutes` across parking clears
+
+##### V-005: Extend Next-Sweep Scan Range (HIGH)
+4. **[SweepingRuleEngine.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/domain/engine/SweepingRuleEngine.kt)** (Line 65)
+   - Changed `for (dayOffset in 1L..60L)` → `for (dayOffset in 1L..180L)` (matches iOS's 180-day scan)
+
+##### V-006: Widen Search Radius (HIGH)
+5. **[StreetDao.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/data/db/StreetDao.kt)** (Line 67)
+   - Changed `radiusDeg: Double = 0.001` → `radiusDeg: Double = 0.005` (matches iOS `StreetRepository.swift:138`)
+
+#### Phase 2: UI Parity (HIGH + MEDIUM)
+
+##### V-008: Day-Offset Map Color System (HIGH)
+6. **[MapScreen.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/ui/MapScreen.kt)** (719 lines, REWRITTEN)
+   - Replaced status-based coloring with `mapColorForSegment(segment, today)` function
+   - Color system: Red (today), Orange `0xFFFF9800` (tomorrow), Yellow `0xFFFFC107` (2-3 days), Green `0xFF4CAF50` (safe), Gray (no data)
+   - Added `MapLegend` composable with `LegendItem` rows (colored circle + label)
+   - ParkingInfoCard and StreetInfoSheet continue using `SweepingStatus` for text (unchanged)
+
+##### V-009: Polyline Rendering (MEDIUM)
+   - Added `zIndex = 1f` to all Polylines (render above map labels)
+   - Added `color = color.copy(alpha = 0.85f)` for semi-transparent overlays
+
+##### V-013: Disclaimer / Legal (HIGH)
+7. **[DisclaimerManager.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/ui/DisclaimerManager.kt)** (34 lines, NEW FILE)
+   - `object DisclaimerManager` with SharedPreferences-backed `hasSeenDisclaimer_v1` flag
+   - Identical disclaimer text from iOS `DisclaimerManager.swift`
+   - Constants: `DISCLAIMER_TITLE`, `DISCLAIMER_BODY`, `ATTRIBUTION_TEXT`
+
+   MapScreen additions:
+   - First-launch `AlertDialog` with non-dismissable background and "I Understand" button
+   - Top-left `Icons.Default.Info` button to re-show disclaimer
+   - Bottom-center `ATTRIBUTION_TEXT` overlay: "Data: City of San Francisco (data.sfgov.org)"
+
+##### V-017: GPS-Based Parking Location (MEDIUM)
+   - "I Parked Here" button: replaced `cameraPositionState.position.target` with `FusedLocationProviderClient.lastLocation`
+   - Fallback chain: GPS → camera center (if GPS null) → camera center (if SecurityException)
+   - "Park Here" from bottom sheet still uses segment midpoint (intentional)
+
+##### V-019: Deprecated Geocoder API (LOW — Phase 5)
+   - Extracted `searchAddress()` function with API-level branching
+   - API 33+: Uses `Geocoder.getFromLocationName(query, count, listener)` callback
+   - Below API 33: `@Suppress("DEPRECATION")` on legacy synchronous API
+
+#### Phase 3: Notifications (HIGH + MEDIUM)
+
+##### V-011: Notification Architecture (HIGH)
+8. **[NotificationScheduler.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/notification/NotificationScheduler.kt)** (50 lines, REWRITTEN)
+   - Added `leadMinutes: Int = 60` parameter to `schedule()`
+   - Changed from `sweepingTime.minusHours(1)` → `sweepingTime.minusMinutes(leadMinutes.toLong())`
+   - Work names now unique: `"sweeping_alert_$sweepEpochMillis"` instead of static `"sweeping_alert"`
+   - Cancel now uses `cancelAllWorkByTag(WORK_TAG)` instead of `cancelUniqueWork(WORK_NAME)`
+
+9. **[SweepingNotificationWorker.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/notification/SweepingNotificationWorker.kt)** (74 lines)
+   - Changed `manager.notify(NOTIFICATION_ID, notification)` → `manager.notify(sweepTimeMillis.hashCode(), notification)`
+   - Removed static `NOTIFICATION_ID = 1001` constant
+
+##### V-018: Notification Settings UI (MEDIUM)
+   - Added `NotificationSettingsDialog` composable with radio buttons: 15 min, 30 min, 1 hour, 2 hours
+   - Added settings gear icon (`Icons.Default.Settings`) to `ParkingInfoCard` header row
+   - Selection stored via `ParkingPreferences.notificationLeadMinutes`
+   - Re-schedules notification on change via `MapViewModel.updateNotificationLeadMinutes()`
+
+#### Phase 4: Code Quality (MEDIUM)
+
+##### V-007: Rename Holiday Flag
+10. **[SweepingRule.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/domain/model/SweepingRule.kt)** — Renamed `holidaysObserved` → `appliesToHolidays` (property only, DB column stays `holidays_observed`)
+11. **[StreetDao.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/data/db/StreetDao.kt)** — Updated constructor call
+12. **[SweepingRuleTest.kt](EasyStreet_Android/app/src/test/kotlin/com/easystreet/domain/model/SweepingRuleTest.kt)** — Updated 3 references
+13. **[SweepingRuleEngineTest.kt](EasyStreet_Android/app/src/test/kotlin/com/easystreet/domain/engine/SweepingRuleEngineTest.kt)** — Updated constructor call + added 2 new tests
+
+##### V-010: Add ActiveNow Sweep Status
+14. **[SweepingStatus.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/domain/model/SweepingStatus.kt)** — Added `data class ActiveNow(val time: LocalDateTime, val streetName: String)`
+15. **[SweepingRuleEngine.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/domain/engine/SweepingRuleEngine.kt)** — When `sweepStart <= now < sweepEnd` → returns `ActiveNow` instead of `Imminent`
+    - MapScreen: `ParkingInfoCard` shows "Sweeping in progress! Move your car!" in Red
+    - MapScreen: `StreetInfoSheet` shows same ActiveNow message
+
+##### V-012: DB Error Handling
+16. **[StreetDatabase.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/data/db/StreetDatabase.kt)** — Added `DatabaseInitException` class, wraps lazy init in try/catch
+17. **[MapViewModel.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/ui/MapViewModel.kt)** — Added `dbError: StateFlow<String?>`, catches `DatabaseInitException` in init, skips viewport queries on error
+    - MapScreen: Shows error card with `MaterialTheme.colorScheme.errorContainer` background
+
+##### V-014: Segment ID Type
+18. **[StreetSegment.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/domain/model/StreetSegment.kt)** — Changed `val id: Long` → `val id: String`
+19. **[StreetDao.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/data/db/StreetDao.kt)** — Converts via `segmentId.toString()` in StreetSegment constructor
+
+### Testing & Verification
+
+**Unit tests:** All pass (`./gradlew test` — BUILD SUCCESSFUL)
+- HolidayCalculatorTest: 12 tests (expanded from 7)
+- SweepingRuleEngineTest: 9 tests (expanded from 7, added `activeNow` and `5th week rule`)
+- SweepingRuleTest: 3 tests (updated property name)
+
+**Build:** `./gradlew build` — BUILD SUCCESSFUL (96 tasks, 0 failures)
+
+**Cross-platform holiday verification (Python):** All 8 test fixtures pass:
+| Date | Holiday? | Verified |
+|---|---|---|
+| Jan 1, 2026 (Thu) | YES | PASS |
+| Jul 3, 2026 (Fri) | YES (Jul 4 observed) | PASS |
+| Jul 4, 2026 (Sat) | NO | PASS |
+| Jun 19, any year | NO | PASS |
+| Nov 26, 2026 (Thu) | YES (Thanksgiving) | PASS |
+| Nov 27, 2026 (Fri) | YES (Day after) | PASS |
+| Dec 24, 2027 (Fri) | YES (Christmas observed) | PASS |
+| Dec 31, 2027 (Fri) | YES (New Year 2028 observed) | PASS |
+
+### Environment Setup Notes
+- Installed `openjdk@17` via Homebrew: `brew install openjdk@17`
+- Set `JAVA_HOME="/usr/local/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"`
+- Android Studio installed; SDK at `~/Library/Android/sdk`
+- Created `local.properties` with `sdk.dir` pointing to SDK
+
+### Files Modified Summary
+
+| Phase | Files Modified | New Files |
+|---|---|---|
+| 1 (Data) | HolidayCalculator.kt, HolidayCalculatorTest.kt, ParkingPreferences.kt, SweepingRuleEngine.kt, StreetDao.kt | 0 |
+| 2 (UI) | MapScreen.kt | DisclaimerManager.kt |
+| 3 (Notif) | NotificationScheduler.kt, SweepingNotificationWorker.kt, MapViewModel.kt | 0 |
+| 4 (Quality) | SweepingRule.kt, SweepingStatus.kt, StreetSegment.kt, StreetDatabase.kt, SweepingRuleEngineTest.kt, SweepingRuleTest.kt | 0 |
+| 5 (Polish) | MapScreen.kt (Geocoder API branching) | 0 |
+| **Total** | **15 files modified** | **1 new file** |
+
+### V-015, V-016: No Changes (Accepted Differences)
+- V-015 (coordinate typing): Android uses `LatLngPoint` data class vs iOS `CLLocationCoordinate2D` — platform-idiomatic
+- V-016 (model richness): iOS models have more computed properties — acceptable divergence
+
+### Next Steps
+1. Manual testing on Android emulator for UI changes (disclaimer dialog, GPS parking, map legend, notification settings)
+2. Add Google Maps API key to `AndroidManifest.xml` for emulator testing
+3. Continue with production readiness plan at `docs/plans/2026-02-06-production-readiness.md`
+
+### References
+- [HolidayCalculator.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/domain/engine/HolidayCalculator.kt)
+- [HolidayCalculatorTest.kt](EasyStreet_Android/app/src/test/kotlin/com/easystreet/domain/engine/HolidayCalculatorTest.kt)
+- [ParkingPreferences.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/data/prefs/ParkingPreferences.kt)
+- [SweepingRuleEngine.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/domain/engine/SweepingRuleEngine.kt)
+- [StreetDao.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/data/db/StreetDao.kt)
+- [MapScreen.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/ui/MapScreen.kt)
+- [DisclaimerManager.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/ui/DisclaimerManager.kt)
+- [NotificationScheduler.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/notification/NotificationScheduler.kt)
+- [SweepingNotificationWorker.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/notification/SweepingNotificationWorker.kt)
+- [MapViewModel.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/ui/MapViewModel.kt)
+- [SweepingRule.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/domain/model/SweepingRule.kt)
+- [SweepingStatus.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/domain/model/SweepingStatus.kt)
+- [StreetSegment.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/domain/model/StreetSegment.kt)
+- [StreetDatabase.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/data/db/StreetDatabase.kt)
+- [SweepingRuleEngineTest.kt](EasyStreet_Android/app/src/test/kotlin/com/easystreet/domain/engine/SweepingRuleEngineTest.kt)
+- [SweepingRuleTest.kt](EasyStreet_Android/app/src/test/kotlin/com/easystreet/domain/model/SweepingRuleTest.kt)
+- iOS references: [HolidayCalculator.swift](EasyStreet/Utils/HolidayCalculator.swift), [DisclaimerManager.swift](EasyStreet/Utils/DisclaimerManager.swift)
+
+---
+
 ## 2026-02-05 - iOS Feature Improvements: Repository Pattern, Street-Tap Sheet, Parking Card, SQLite
 
 **Session Type**: Development

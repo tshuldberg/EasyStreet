@@ -5,17 +5,21 @@ import android.database.sqlite.SQLiteDatabase
 import java.io.File
 import java.io.FileOutputStream
 
+class DatabaseInitException(message: String, cause: Throwable? = null) : Exception(message, cause)
+
 class StreetDatabase(private val context: Context) {
 
-    private val dbName = "easystreet.db"
-
     val database: SQLiteDatabase by lazy {
-        copyDatabaseIfNeeded()
-        SQLiteDatabase.openDatabase(
-            getDatabasePath().absolutePath,
-            null,
-            SQLiteDatabase.OPEN_READONLY,
-        )
+        try {
+            copyDatabaseIfNeeded()
+            SQLiteDatabase.openDatabase(
+                getDatabasePath().absolutePath,
+                null,
+                SQLiteDatabase.OPEN_READONLY,
+            )
+        } catch (e: Exception) {
+            throw DatabaseInitException("Failed to open street database: ${e.message}", e)
+        }
     }
 
     private fun getDatabasePath(): File {
@@ -33,5 +37,9 @@ class StreetDatabase(private val context: Context) {
                 input.copyTo(output)
             }
         }
+    }
+
+    companion object {
+        private const val dbName = "easystreet.db"
     }
 }

@@ -3,6 +3,7 @@ package com.easystreet.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.easystreet.data.db.DatabaseInitException
 import com.easystreet.data.db.StreetDao
 import com.easystreet.data.db.StreetDatabase
 import com.easystreet.data.prefs.ParkingPreferences
@@ -22,9 +23,9 @@ import java.time.LocalDateTime
 
 class MapViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val streetDb = StreetDatabase(application)
-    private val streetDao = StreetDao(streetDb)
-    private val streetRepo = StreetRepository(streetDao)
+    private val streetDb: StreetDatabase
+    private val streetDao: StreetDao
+    private val streetRepo: StreetRepository
 
     private val parkingPrefs = ParkingPreferences(application)
     val parkingRepo = ParkingRepository(parkingPrefs)
@@ -38,12 +39,36 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedSegment = MutableStateFlow<StreetSegment?>(null)
     val selectedSegment: StateFlow<StreetSegment?> = _selectedSegment.asStateFlow()
 
+    private val _dbError = MutableStateFlow<String?>(null)
+    val dbError: StateFlow<String?> = _dbError.asStateFlow()
+
+    val notificationLeadMinutes: Int
+        get() = parkingPrefs.notificationLeadMinutes
+
     private var viewportJob: Job? = null
+
+    init {
+        streetDb = StreetDatabase(application)
+        streetDao = StreetDao(streetDb)
+        streetRepo = StreetRepository(streetDao)
+
+        // Eagerly verify database access
+        viewModelScope.launch {
+            try {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    streetDb.database // triggers lazy init
+                }
+            } catch (e: DatabaseInitException) {
+                _dbError.value = "Unable to load street data. Please reinstall the app."
+            }
+        }
+    }
 
     /**
      * Called when the map camera moves. Debounces by 300ms.
      */
     fun onViewportChanged(latMin: Double, latMax: Double, lngMin: Double, lngMax: Double) {
+        if (_dbError.value != null) return
         viewportJob?.cancel()
         viewportJob = viewModelScope.launch {
             delay(300)
@@ -106,6 +131,16 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
         _selectedSegment.value = null
     }
 
+    fun updateNotificationLeadMinutes(minutes: Int) {
+        parkingPrefs.notificationLeadMinutes = minutes
+        // Re-schedule with new lead time if parked
+        val car = parkingRepo.parkedCar.value ?: return
+        viewModelScope.launch {
+            val segment = streetRepo.findNearestSegment(car.latitude, car.longitude) ?: return@launch
+            evaluateAndSchedule(segment, car.streetName)
+        }
+    }
+
     private fun evaluateAndSchedule(segment: StreetSegment, streetName: String) {
         val now = LocalDateTime.now()
         val status = SweepingRuleEngine.getStatus(segment.rules, streetName, now)
@@ -113,7 +148,12 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
 
         val nextTime = SweepingRuleEngine.getNextSweepingTime(segment.rules, now)
         if (nextTime != null) {
-            NotificationScheduler.schedule(getApplication(), nextTime, streetName)
+            NotificationScheduler.schedule(
+                getApplication(),
+                nextTime,
+                streetName,
+                parkingPrefs.notificationLeadMinutes,
+            )
         }
     }
 }

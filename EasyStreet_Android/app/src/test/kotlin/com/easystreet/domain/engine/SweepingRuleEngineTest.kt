@@ -17,7 +17,7 @@ class SweepingRuleEngineTest {
         startTime = LocalTime.of(start, 0),
         endTime = LocalTime.of(end, 0),
         weekOfMonth = week,
-        holidaysObserved = false,
+        appliesToHolidays = false,
     )
 
     @Test
@@ -57,6 +57,16 @@ class SweepingRuleEngineTest {
     }
 
     @Test
+    fun `activeNow when sweeping is in progress`() {
+        val status = engine.getStatus(
+            listOf(mondayRule()),
+            "Market St",
+            LocalDateTime.of(2026, 2, 9, 10, 0),
+        )
+        assertTrue(status is SweepingStatus.ActiveNow)
+    }
+
+    @Test
     fun `upcoming when sweeping is on a different day`() {
         val status = engine.getStatus(
             listOf(mondayRule()),
@@ -73,7 +83,7 @@ class SweepingRuleEngineTest {
             LocalDateTime.of(2026, 2, 10, 10, 0),
         )
         assertNotNull(next)
-        // Feb 16 is Presidents' Day — skipped since holidaysObserved=false
+        // Feb 16 is Presidents' Day — skipped since appliesToHolidays=false
         assertEquals(LocalDateTime.of(2026, 2, 23, 9, 0), next)
     }
 
@@ -84,5 +94,24 @@ class SweepingRuleEngineTest {
             LocalDateTime.of(2026, 2, 9, 7, 0),
         )
         assertEquals(LocalDateTime.of(2026, 2, 9, 9, 0), next)
+    }
+
+    @Test
+    fun `5th week rule found within 180 day scan range`() {
+        // 5th-week-only rule (week 5) — these are rare
+        val rule = SweepingRule(
+            dayOfWeek = DayOfWeek.MONDAY,
+            startTime = LocalTime.of(9, 0),
+            endTime = LocalTime.of(11, 0),
+            weekOfMonth = 5,
+            appliesToHolidays = false,
+        )
+        // Starting from Jan 1 2026, a month with 5 Mondays:
+        // March 2026 has 5 Mondays (2,9,16,23,30) — Mar 30 is 5th week
+        val next = engine.getNextSweepingTime(
+            listOf(rule),
+            LocalDateTime.of(2026, 1, 1, 0, 0),
+        )
+        assertNotNull(next)
     }
 }
