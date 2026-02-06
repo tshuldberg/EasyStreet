@@ -41,6 +41,7 @@ class MapViewController: UIViewController {
     private var displayedSegmentIDs: Set<String> = []
     private var colorCache: [String: StreetSegment.MapColorStatus] = [:]
     private var overlayUpdateTimer: Timer?
+    private var lastOverlayUpdate: Date?
 
     // MARK: - Lifecycle
 
@@ -133,6 +134,7 @@ class MapViewController: UIViewController {
         // Set up tap gesture for street detail
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleMapTap(_:)))
         tapGesture.require(toFail: longPressGesture)
+        tapGesture.delegate = self
         mapView.addGestureRecognizer(tapGesture)
     }
 
@@ -683,8 +685,17 @@ extension MapViewController: MKMapViewDelegate {
 
     func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
         overlayUpdateTimer?.invalidate()
-        overlayUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
-            self?.updateMapOverlays()
+
+        // Throttle: update immediately if ≥300ms since last update, otherwise schedule trailing update
+        let now = Date()
+        if lastOverlayUpdate == nil || now.timeIntervalSince(lastOverlayUpdate!) >= 0.3 {
+            lastOverlayUpdate = now
+            updateMapOverlays()
+        } else {
+            overlayUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+                self?.lastOverlayUpdate = Date()
+                self?.updateMapOverlays()
+            }
         }
     }
 }
@@ -784,6 +795,18 @@ extension MapViewController: ParkingCardDelegate {
 
     func parkingCardDidTapSettings() {
         settingsTapped()
+    }
+}
+
+// MARK: - UIGestureRecognizerDelegate
+
+extension MapViewController: UIGestureRecognizerDelegate {
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        // Allow our tap gesture to fire alongside MKMapView's internal gestures
+        if gestureRecognizer is UITapGestureRecognizer {
+            return true
+        }
+        return false
     }
 }
 
