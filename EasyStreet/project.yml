@@ -19,8 +19,12 @@ targets:
     resources:
       - path: LaunchScreen.storyboard
       - path: sweeping_data_sf.json
+      - path: easystreet.db
+        optional: true
       - path: Info.plist
         buildPhase: none
+    dependencies:
+      - sdk: libsqlite3.tbd
     settings:
       base:
         INFOPLIST_FILE: Info.plist

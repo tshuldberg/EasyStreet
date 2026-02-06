@@ -4,8 +4,20 @@ import Foundation
 /// Replaces the previously hardcoded 2023 holiday list in SweepingRuleEngine.
 class HolidayCalculator {
 
+    private var cachedHolidays: [Int: [Date]] = [:]
+    private var cachedHolidayStrings: [Int: Set<String>] = [:]
+
+    private lazy var isoFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
     /// Returns all 11 SF public holidays for the given year.
     func holidays(for year: Int) -> [Date] {
+        if let cached = cachedHolidays[year] { return cached }
+
         var result: [Date] = []
 
         // Fixed holidays
@@ -23,6 +35,8 @@ class HolidayCalculator {
         result.append(nthWeekday(nth: 2, weekday: 2, month: 10, year: year)) // Indigenous Peoples' Day (2nd Monday Oct)
         result.append(nthWeekday(nth: 4, weekday: 5, month: 11, year: year)) // Thanksgiving (4th Thursday Nov)
 
+        cachedHolidays[year] = result
+        cachedHolidayStrings[year] = Set(result.map { isoFormatter.string(from: $0) })
         return result
     }
 
@@ -30,7 +44,10 @@ class HolidayCalculator {
     func isHoliday(_ date: Date) -> Bool {
         let cal = Calendar.current
         let year = cal.component(.year, from: date)
-        return holidays(for: year).contains { cal.isDate($0, inSameDayAs: date) }
+        if cachedHolidayStrings[year] == nil {
+            _ = holidays(for: year)
+        }
+        return cachedHolidayStrings[year]!.contains(isoFormatter.string(from: date))
     }
 
     // MARK: - Private Helpers

@@ -4,6 +4,133 @@
 
 ---
 
+## 2026-02-05 - iOS Feature Improvements: Repository Pattern, Street-Tap Sheet, Parking Card, SQLite
+
+**Session Type**: Development
+**Duration**: ~30 minutes
+**Participants**: Trey Shuldberg, Claude Code (AI Assistant) with 3 parallel agents
+**Commits**: None (uncommitted, ready to commit)
+
+### Objectives
+- Close feature gaps between Android and iOS implementations
+- Extract data access behind Repository pattern for future flexibility
+- Add street-tap bottom sheet to view sweeping schedules
+- Replace hidden status/buttons with always-visible parking card
+- Migrate from 7.4MB in-memory JSON to pre-bundled SQLite database
+
+### Approach
+
+Executed in 3 phases:
+- **Phase 1** (sequential): Repository pattern — foundation for subsequent phases
+- **Phase 2** (3 parallel agents): Street detail sheet, parking card, SQLite migration
+- **Phase 3** (sequential): Integration wiring, build verification, test suite
+
+### Technical Details
+
+#### Files Created
+
+1. **[EasyStreet/Data/StreetRepository.swift](EasyStreet/EasyStreet/Data/StreetRepository.swift)** (243 lines)
+   - Thin data-access layer over street sweeping data
+   - Tries SQLite first via `DatabaseManager.shared.open()`; falls back to JSON `StreetSweepingDataManager`
+   - Methods: `loadData()`, `segments(in:)`, `findSegment(near:)`, `segment(byID:)`
+   - SQLite queries use bounding-box WHERE clauses with LEFT JOIN on sweeping_rules
+   - Parses coordinates and weeks_of_month JSON strings back to Swift types
+
+2. **[EasyStreet/Data/ParkingRepository.swift](EasyStreet/EasyStreet/Data/ParkingRepository.swift)** (42 lines)
+   - Wraps `ParkedCarManager.shared` — properties forwarded, mutations forwarded
+   - Exposes: `isCarParked`, `parkedLocation`, `parkedStreetName`, `parkedTime`, `notificationLeadMinutes`
+   - Methods: `parkCar(at:streetName:)`, `updateParkedLocation(to:)`, `clearParkedCar()`, `scheduleNotification(for:streetName:)`
+
+3. **[EasyStreet/Controllers/StreetDetailViewController.swift](EasyStreet/EasyStreet/Controllers/StreetDetailViewController.swift)** (279 lines)
+   - Bottom sheet showing street sweeping details when user taps a polyline
+   - UI: street name (bold 20pt), color-coded next sweeping status, divider, "Weekly Schedule" header, rules list, "Park Here" button
+   - `StreetDetailDelegate` protocol with `streetDetailDidParkHere(at:streetName:)`
+   - Park Here uses segment midpoint: `coordinates[count / 2]`
+   - iOS 15+: `UISheetPresentationController` with `.medium()` detent and grabber; iOS 14: `.pageSheet` with close button
+
+4. **[EasyStreet/Views/ParkingCardView.swift](EasyStreet/EasyStreet/Views/ParkingCardView.swift)** (180 lines)
+   - Persistent bottom card replacing hidden parkButton/clearParkButton/statusView
+   - Two states: `.notParked` (shows "I Parked Here" button) and `.parked(streetName, statusText, statusColor)` (shows street name, color-coded status, Clear Parking + gear buttons)
+   - `ParkingCardDelegate` with `parkingCardDidTapParkHere()`, `parkingCardDidTapClearParking()`, `parkingCardDidTapSettings()`
+   - Card styling: cornerRadius 12, shadow (0.15 opacity, y=-2, radius 8)
+
+5. **[EasyStreet/Data/DatabaseManager.swift](EasyStreet/EasyStreet/Data/DatabaseManager.swift)** (183 lines)
+   - sqlite3 C API wrapper — no external dependencies
+   - `open()` finds bundled `easystreet.db`, opens with `SQLITE_OPEN_READONLY`
+   - `query(_:parameters:rowHandler:)` supports String/Int/Double parameter binding
+   - Static column accessors: `string(from:column:)`, `double(from:column:)`, `int(from:column:)`
+   - Custom `DatabaseError` enum with `.openFailed` and `.queryFailed`
+
+6. **[EasyStreet/tools/convert_json_to_sqlite.py](EasyStreet/EasyStreet/tools/convert_json_to_sqlite.py)** (173 lines)
+   - Converts `sweeping_data_sf.json` → `easystreet.db`
+   - Tables: `street_segments` (id, street_name, coordinates JSON, lat/lng bounding box), `sweeping_rules` (segment_id FK, day_of_week, times, weeks_of_month JSON, apply_on_holidays)
+   - Indexes: `idx_segments_bbox`, `idx_rules_segment`
+   - Result: 21,809 segments, 36,173 rules, 8.23 MB database
+
+7. **[EasyStreet/easystreet.db](EasyStreet/EasyStreet/easystreet.db)** (8.23 MB)
+   - Pre-built SQLite database generated from sweeping_data_sf.json
+
+#### Files Modified
+
+1. **[EasyStreet/Controllers/MapViewController.swift](EasyStreet/EasyStreet/Controllers/MapViewController.swift)** (799 lines)
+   - **Removed**: `parkButton`, `clearParkButton`, `statusView`, `statusLabel`, `setupButtons()`, `setupStatusView()`, `updateUIForParkedState()`, `updateUIForUnparkedState()`, nav bar gear button
+   - **Added**: `parkingCard` (ParkingCardView), `streetRepo`/`parkingRepo` properties
+   - **Added**: Tap gesture (`handleMapTap`) with polyline hit testing using perpendicular distance formula
+   - **Added**: `presentStreetDetail(for:)` with iOS 15+ sheet / iOS 14 pageSheet
+   - **Added**: `ParkingCardDelegate` conformance routing to existing actions
+   - **Added**: `StreetDetailDelegate` conformance for Park Here from sheet
+   - **Refactored**: `updateStatusDisplay(with:)` now configures `parkingCard` with `ParkingCardState` instead of setting `statusLabel`/`statusView`
+   - **Replaced**: All `StreetSweepingDataManager.shared` → `streetRepo`, all `ParkedCarManager.shared` → `parkingRepo`
+   - Legend view now anchors to `parkingCard.topAnchor` instead of safe area bottom
+
+2. **[EasyStreet/Utils/SweepingRuleEngine.swift](EasyStreet/EasyStreet/Utils/SweepingRuleEngine.swift)** (Line 21)
+   - Replaced `StreetSweepingDataManager.shared.findSegment` → `StreetRepository.shared.findSegment`
+
+3. **[EasyStreet/project.yml](EasyStreet/EasyStreet/project.yml)**
+   - Added `easystreet.db` to resources (optional: true for graceful fallback)
+   - Added `libsqlite3.tbd` SDK dependency
+
+### Hit Testing Algorithm
+
+The street-tap feature uses point-to-line-segment perpendicular distance:
+- Convert tap point to `MKMapPoint`
+- For each polyline overlay, iterate line segments
+- Project tap point onto segment, clamp parameter t to [0,1]
+- Calculate distance to projection point via `MKMapPoint.distance(to:)`
+- Threshold: `metersPerPixel * 30` (adaptive to zoom level)
+
+### Testing & Verification
+- **Build**: Succeeded (xcodebuild, iPhone 17 Pro Simulator, iOS 26.2)
+- **All existing tests pass**: HolidayCalculatorTests (14), MapColorStatusTests (4), SpatialIndexTests, SweepingRuleEngineTests (7)
+- **SQLite conversion**: 21,809 segments / 36,173 rules processed in 0.95s
+
+### Architecture Decisions
+
+1. **Repository pattern with fallback**: StreetRepository tries SQLite first, falls back to JSON. This makes the SQLite migration non-breaking — if the DB file is missing in DEBUG, the app still works.
+
+2. **ParkingCardView as persistent UI**: Replaced the hidden-by-default status view pattern with an always-visible card. The card switches between two container views (not-parked / parked) for clean state transitions.
+
+3. **sqlite3 C API directly**: Avoided third-party SQLite wrappers to keep dependencies at zero. The system `libsqlite3.tbd` is always available.
+
+### Next Steps
+- Commit all changes
+- Write unit tests for StreetDetailViewController midpoint calculation
+- Write DatabaseManager tests (DB opens, bounding box query, segment-by-ID)
+- Consider removing the 7.4MB JSON file from the bundle once SQLite is proven stable
+
+### References
+- [StreetRepository.swift](EasyStreet/EasyStreet/Data/StreetRepository.swift)
+- [ParkingRepository.swift](EasyStreet/EasyStreet/Data/ParkingRepository.swift)
+- [StreetDetailViewController.swift](EasyStreet/EasyStreet/Controllers/StreetDetailViewController.swift)
+- [ParkingCardView.swift](EasyStreet/EasyStreet/Views/ParkingCardView.swift)
+- [DatabaseManager.swift](EasyStreet/EasyStreet/Data/DatabaseManager.swift)
+- [convert_json_to_sqlite.py](EasyStreet/EasyStreet/tools/convert_json_to_sqlite.py)
+- [MapViewController.swift](EasyStreet/EasyStreet/Controllers/MapViewController.swift)
+- [SweepingRuleEngine.swift](EasyStreet/EasyStreet/Utils/SweepingRuleEngine.swift)
+- [project.yml](EasyStreet/EasyStreet/project.yml)
+
+---
+
 ## 2026-02-05 - Android Sprint 2: UI Layer Implementation (Tasks 10-14)
 
 **Session Type**: Development

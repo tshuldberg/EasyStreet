@@ -153,6 +153,18 @@ struct StreetSegment: Codable, Identifiable {
 
         return .green
     }
+
+    func mapColorStatus(today: Date, upcomingDates: [(offset: Int, date: Date)]) -> MapColorStatus {
+        if rules.contains(where: { $0.appliesTo(date: today) }) { return .red }
+
+        for (offset, date) in upcomingDates {
+            if rules.contains(where: { $0.appliesTo(date: date) }) {
+                return offset == 1 ? .orange : .yellow
+            }
+        }
+
+        return .green
+    }
 }
 
 /// Manager class for handling street sweeping data
@@ -160,9 +172,13 @@ class StreetSweepingDataManager {
     static let shared = StreetSweepingDataManager()
     
     private var allSegments: [StreetSegment] = []
+    private var segmentsByID: [String: StreetSegment] = [:]
+    private var boundingRects: [String: MKMapRect] = [:]
+    private var gridIndex: [String: [String]] = [:]
+    private let gridCellSize: Double = 0.005
     private var isLoaded = false
     private let dataFileName = "sweeping_data_sf.json"
-    
+
     private init() {
         // Private initializer for singleton pattern
     }
@@ -191,6 +207,7 @@ class StreetSweepingDataManager {
                 #if DEBUG
                 print("Loading SAMPLE data as fallback.")
                 self.loadSampleData()
+                self.buildIndexes()
                 self.isLoaded = true
                 DispatchQueue.main.async { completion(true) }
                 #else
@@ -198,10 +215,11 @@ class StreetSweepingDataManager {
                 #endif
                 return
             }
-            
+
             do {
                 let jsonData = try Data(contentsOf: url)
                 self.allSegments = try JSONDecoder().decode([StreetSegment].self, from: jsonData)
+                self.buildIndexes()
                 self.isLoaded = true
                 print("Successfully loaded \(self.allSegments.count) segments from \(self.dataFileName)")
                 DispatchQueue.main.async { completion(true) }
@@ -211,6 +229,7 @@ class StreetSweepingDataManager {
                 #if DEBUG
                 print("Loading SAMPLE data due to error: \(error.localizedDescription)")
                 self.loadSampleData()
+                self.buildIndexes()
                 self.isLoaded = true // Consider it loaded with samples for debug
                 DispatchQueue.main.async { completion(true) }
                 #else
@@ -220,56 +239,130 @@ class StreetSweepingDataManager {
         }
     }
     
-    /// Get segments that are visible in the given map rect
+    /// Look up a segment by its ID in O(1).
+    func segment(byID id: String) -> StreetSegment? {
+        return segmentsByID[id]
+    }
+
+    /// Get segments that are visible in the given map rect using the spatial grid index.
     func segments(in mapRect: MKMapRect) -> [StreetSegment] {
         guard isLoaded else { return [] }
-        // A simple AABB (Axis-Aligned Bounding Box) intersection check
-        return allSegments.filter { segment in
-            mapRect.intersects(segment.polyline.boundingMapRect)
-        }
-    }
-    
-    /// Find the segment whose polyline is closest to the given location.
-    /// This is a simplified approach: it finds the segment with a point in its polyline closest to the location.
-    /// For more accuracy, point-to-line-segment distance would be needed.
-    func findSegment(near location: CLLocationCoordinate2D) -> StreetSegment? {
-        guard isLoaded, !allSegments.isEmpty else { return nil }
-        
-        let targetMapPoint = MKMapPoint(location)
-        var closestSegment: StreetSegment? = nil
-        var minDistanceSquared: Double = Double.greatestFiniteMagnitude
-        
-        for segment in allSegments {
-            // A quick check using the bounding box first can be an optimization for large datasets
-            if !segment.polyline.boundingMapRect.contains(targetMapPoint) {
-                // If not looking for exact containment, check distance even if not inside bounding box for proximity.
-                // For simplicity here, we iterate all segments. Add a broader bounding box check if performance is an issue.
-            }
 
-            for pointCoordinate in segment.coordinates {
-                let polylinePoint = CLLocationCoordinate2D(latitude: pointCoordinate[0], longitude: pointCoordinate[1])
-                let mapPoint = MKMapPoint(polylinePoint)
-                
-                // Using squared distance to avoid sqrt, as we only need it for comparison
-                let dx = targetMapPoint.x - mapPoint.x
-                let dy = targetMapPoint.y - mapPoint.y
-                let distanceSquared = dx * dx + dy * dy
-                
-                if distanceSquared < minDistanceSquared {
-                    minDistanceSquared = distanceSquared
-                    closestSegment = segment
+        let topLeft = MKMapPoint(x: mapRect.minX, y: mapRect.minY).coordinate
+        let bottomRight = MKMapPoint(x: mapRect.maxX, y: mapRect.maxY).coordinate
+
+        let minLat = min(topLeft.latitude, bottomRight.latitude)
+        let maxLat = max(topLeft.latitude, bottomRight.latitude)
+        let minLon = min(topLeft.longitude, bottomRight.longitude)
+        let maxLon = max(topLeft.longitude, bottomRight.longitude)
+
+        let startRow = Int(floor(minLat / gridCellSize))
+        let endRow = Int(floor(maxLat / gridCellSize))
+        let startCol = Int(floor(minLon / gridCellSize))
+        let endCol = Int(floor(maxLon / gridCellSize))
+
+        var candidateIDs = Set<String>()
+        for row in startRow...endRow {
+            for col in startCol...endCol {
+                let key = "\(row)_\(col)"
+                if let ids = gridIndex[key] {
+                    candidateIDs.formUnion(ids)
                 }
             }
         }
-        
-        // Optional: Add a threshold for max distance if you only want very close segments
-        // For example: if sqrt(minDistanceSquared) > MAX_ACCEPTABLE_DISTANCE_IN_MAP_UNITS { return nil }
-        
+
+        return candidateIDs.compactMap { id -> StreetSegment? in
+            guard let segment = segmentsByID[id],
+                  let rect = boundingRects[id],
+                  mapRect.intersects(rect) else { return nil }
+            return segment
+        }
+    }
+
+    /// Find the segment closest to the given location using the spatial grid index.
+    func findSegment(near location: CLLocationCoordinate2D) -> StreetSegment? {
+        guard isLoaded, !allSegments.isEmpty else { return nil }
+
+        let targetMapPoint = MKMapPoint(location)
+        let centerRow = Int(floor(location.latitude / gridCellSize))
+        let centerCol = Int(floor(location.longitude / gridCellSize))
+
+        var closestSegment: StreetSegment? = nil
+        var minDistanceSquared: Double = Double.greatestFiniteMagnitude
+
+        for rowOffset in -1...1 {
+            for colOffset in -1...1 {
+                let key = "\(centerRow + rowOffset)_\(centerCol + colOffset)"
+                guard let ids = gridIndex[key] else { continue }
+                for id in ids {
+                    guard let segment = segmentsByID[id] else { continue }
+                    for coord in segment.coordinates {
+                        let mapPoint = MKMapPoint(CLLocationCoordinate2D(latitude: coord[0], longitude: coord[1]))
+                        let dx = targetMapPoint.x - mapPoint.x
+                        let dy = targetMapPoint.y - mapPoint.y
+                        let distSq = dx * dx + dy * dy
+                        if distSq < minDistanceSquared {
+                            minDistanceSquared = distSq
+                            closestSegment = segment
+                        }
+                    }
+                }
+            }
+        }
+
         return closestSegment
     }
     
     // MARK: - Private Methods
-    
+
+    private func buildIndexes() {
+        segmentsByID.removeAll(keepingCapacity: true)
+        boundingRects.removeAll(keepingCapacity: true)
+        gridIndex.removeAll(keepingCapacity: true)
+
+        for segment in allSegments {
+            segmentsByID[segment.id] = segment
+            let rect = computeBoundingRect(for: segment.coordinates)
+            boundingRects[segment.id] = rect
+
+            let topLeft = MKMapPoint(x: rect.minX, y: rect.minY).coordinate
+            let bottomRight = MKMapPoint(x: rect.maxX, y: rect.maxY).coordinate
+
+            let minLat = min(topLeft.latitude, bottomRight.latitude)
+            let maxLat = max(topLeft.latitude, bottomRight.latitude)
+            let minLon = min(topLeft.longitude, bottomRight.longitude)
+            let maxLon = max(topLeft.longitude, bottomRight.longitude)
+
+            let startRow = Int(floor(minLat / gridCellSize))
+            let endRow = Int(floor(maxLat / gridCellSize))
+            let startCol = Int(floor(minLon / gridCellSize))
+            let endCol = Int(floor(maxLon / gridCellSize))
+
+            for row in startRow...endRow {
+                for col in startCol...endCol {
+                    let key = "\(row)_\(col)"
+                    gridIndex[key, default: []].append(segment.id)
+                }
+            }
+        }
+    }
+
+    private func computeBoundingRect(for coordinates: [[Double]]) -> MKMapRect {
+        guard !coordinates.isEmpty else { return MKMapRect.null }
+        var minX = Double.greatestFiniteMagnitude
+        var minY = Double.greatestFiniteMagnitude
+        var maxX = -Double.greatestFiniteMagnitude
+        var maxY = -Double.greatestFiniteMagnitude
+        for coord in coordinates {
+            let mapPoint = MKMapPoint(CLLocationCoordinate2D(latitude: coord[0], longitude: coord[1]))
+            minX = min(minX, mapPoint.x)
+            minY = min(minY, mapPoint.y)
+            maxX = max(maxX, mapPoint.x)
+            maxY = max(maxY, mapPoint.y)
+        }
+        return MKMapRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+    }
+
     private func loadSampleData() {
         // Create a few sample segments for testing UI
         let sampleRule1 = SweepingRule(

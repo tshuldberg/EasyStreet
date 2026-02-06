@@ -3,61 +3,24 @@ import MapKit
 import CoreLocation
 
 class MapViewController: UIViewController {
-    
+
     // MARK: - UI Properties
-    
+
     private let mapView: MKMapView = {
         let map = MKMapView()
         map.translatesAutoresizingMaskIntoConstraints = false
         return map
     }()
-    
+
     private let searchBar: UISearchBar = {
         let searchBar = UISearchBar()
         searchBar.placeholder = "Search address"
         searchBar.translatesAutoresizingMaskIntoConstraints = false
         return searchBar
     }()
-    
-    private let parkButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("I Parked Here", for: .normal)
-        button.backgroundColor = .systemBlue
-        button.setTitleColor(.white, for: .normal)
-        button.layer.cornerRadius = 10
-        button.translatesAutoresizingMaskIntoConstraints = false
-        return button
-    }()
-    
-    private let clearParkButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("Clear Parked Car", for: .normal)
-        button.backgroundColor = .systemRed
-        button.setTitleColor(.white, for: .normal)
-        button.layer.cornerRadius = 10
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.isHidden = true // Initially hidden until car is parked
-        return button
-    }()
-    
-    private let statusView: UIView = {
-        let view = UIView()
-        view.backgroundColor = UIColor.systemBackground.withAlphaComponent(0.9)
-        view.layer.cornerRadius = 10
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.isHidden = true // Initially hidden until car is parked
-        return view
-    }()
-    
-    private let statusLabel: UILabel = {
-        let label = UILabel()
-        label.font = UIFont.systemFont(ofSize: 14)
-        label.numberOfLines = 0
-        label.textAlignment = .left
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
-    
+
+    private let parkingCard = ParkingCardView()
+
     private let legendView: UIView = {
         let view = UIView()
         view.backgroundColor = UIColor.systemBackground.withAlphaComponent(0.9)
@@ -65,39 +28,42 @@ class MapViewController: UIViewController {
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
-    
+
     // MARK: - Properties
-    
+
+    private let streetRepo = StreetRepository.shared
+    private let parkingRepo = ParkingRepository.shared
     private let locationManager = CLLocationManager()
     private var currentLocation: CLLocationCoordinate2D?
     private var parkedCarAnnotation: MKPointAnnotation?
     private var isAdjustingPin = false
     private var hasInitiallyLocated = false
     private var displayedSegmentIDs: Set<String> = []
+    private var colorCache: [String: StreetSegment.MapColorStatus] = [:]
     private var overlayUpdateTimer: Timer?
-    
+
     // MARK: - Lifecycle
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+
         view.backgroundColor = .systemBackground
         title = "EasyStreet"
-        
+
         setupViews()
         setupMapView()
         setupSearchBar()
-        setupButtons()
-        setupStatusView()
         setupLegendView()
         setupLocationManager()
-        
+
+        parkingCard.delegate = self
+
         // Load street sweeping data
         loadStreetSweepingData()
-        
+
         // Check if we have a previously parked car
         checkForParkedCar()
-        
+
         // Register for parked car status change notifications
         NotificationCenter.default.addObserver(
             self,
@@ -105,105 +71,75 @@ class MapViewController: UIViewController {
             name: .parkedCarStatusDidChange,
             object: nil
         )
-
-        // Settings button
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
-            image: UIImage(systemName: "gear"),
-            style: .plain,
-            target: self,
-            action: #selector(settingsTapped)
-        )
     }
-    
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        
+
         // Update map overlay colors based on current time
         updateMapOverlays()
     }
-    
+
     // MARK: - Setup Methods
-    
+
     private func setupViews() {
         view.addSubview(mapView)
         view.addSubview(searchBar)
-        view.addSubview(parkButton)
-        view.addSubview(clearParkButton)
-        view.addSubview(statusView)
+        view.addSubview(parkingCard)
         view.addSubview(legendView)
-        
+
         NSLayoutConstraint.activate([
             // Map view takes the full screen
             mapView.topAnchor.constraint(equalTo: view.topAnchor),
             mapView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             mapView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             mapView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            
+
             // Search bar at top
             searchBar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             searchBar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
             searchBar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
-            
-            // Park button at bottom
-            parkButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
-            parkButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            parkButton.widthAnchor.constraint(equalToConstant: 200),
-            parkButton.heightAnchor.constraint(equalToConstant: 44),
-            
-            // Clear parked car button just above park button
-            clearParkButton.bottomAnchor.constraint(equalTo: parkButton.topAnchor, constant: -10),
-            clearParkButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            clearParkButton.widthAnchor.constraint(equalToConstant: 200),
-            clearParkButton.heightAnchor.constraint(equalToConstant: 44),
-            
-            // Status view above the buttons
-            statusView.bottomAnchor.constraint(equalTo: clearParkButton.topAnchor, constant: -20),
-            statusView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            statusView.widthAnchor.constraint(equalToConstant: 300),
-            
-            // Legend view in bottom left
+
+            // Parking card at bottom
+            parkingCard.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
+            parkingCard.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            parkingCard.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+
+            // Legend view above parking card
             legendView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            legendView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+            legendView.bottomAnchor.constraint(equalTo: parkingCard.topAnchor, constant: -12),
             legendView.widthAnchor.constraint(equalToConstant: 120),
             legendView.heightAnchor.constraint(equalToConstant: 120)
         ])
+
+        // Start in not-parked state
+        parkingCard.configure(for: .notParked)
     }
-    
+
     private func setupMapView() {
         mapView.delegate = self
         mapView.showsUserLocation = true
-        
+
         // Set initial region to San Francisco
         let sfCoordinate = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
-        let region = MKCoordinateRegion(center: sfCoordinate, 
+        let region = MKCoordinateRegion(center: sfCoordinate,
                                         span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05))
         mapView.setRegion(region, animated: false)
-        
+
         // Set up gesture recognizer for pin adjustment
         let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
         mapView.addGestureRecognizer(longPressGesture)
+
+        // Set up tap gesture for street detail
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleMapTap(_:)))
+        tapGesture.require(toFail: longPressGesture)
+        mapView.addGestureRecognizer(tapGesture)
     }
-    
+
     private func setupSearchBar() {
         searchBar.delegate = self
     }
-    
-    private func setupButtons() {
-        parkButton.addTarget(self, action: #selector(parkButtonTapped), for: .touchUpInside)
-        clearParkButton.addTarget(self, action: #selector(clearParkButtonTapped), for: .touchUpInside)
-    }
-    
-    private func setupStatusView() {
-        statusView.addSubview(statusLabel)
-        
-        NSLayoutConstraint.activate([
-            statusLabel.topAnchor.constraint(equalTo: statusView.topAnchor, constant: 10),
-            statusLabel.leadingAnchor.constraint(equalTo: statusView.leadingAnchor, constant: 10),
-            statusLabel.trailingAnchor.constraint(equalTo: statusView.trailingAnchor, constant: -10),
-            statusLabel.bottomAnchor.constraint(equalTo: statusView.bottomAnchor, constant: -10)
-        ])
-    }
-    
+
     private func setupLegendView() {
         // Create a stack view for legend items
         let stackView = UIStackView()
@@ -211,16 +147,16 @@ class MapViewController: UIViewController {
         stackView.distribution = .fillEqually
         stackView.spacing = 8
         stackView.translatesAutoresizingMaskIntoConstraints = false
-        
+
         legendView.addSubview(stackView)
-        
+
         NSLayoutConstraint.activate([
             stackView.topAnchor.constraint(equalTo: legendView.topAnchor, constant: 8),
             stackView.leadingAnchor.constraint(equalTo: legendView.leadingAnchor, constant: 8),
             stackView.trailingAnchor.constraint(equalTo: legendView.trailingAnchor, constant: -8),
             stackView.bottomAnchor.constraint(equalTo: legendView.bottomAnchor, constant: -8)
         ])
-        
+
         // Add legend items
         let redItem = createLegendItem(color: .systemRed, text: "Today")
         let orangeItem = createLegendItem(color: .systemOrange, text: "Tomorrow")
@@ -232,73 +168,60 @@ class MapViewController: UIViewController {
         stackView.addArrangedSubview(yellowItem)
         stackView.addArrangedSubview(greenItem)
     }
-    
+
     private func createLegendItem(color: UIColor, text: String) -> UIView {
         let container = UIView()
-        
+
         let colorView = UIView()
         colorView.backgroundColor = color
         colorView.translatesAutoresizingMaskIntoConstraints = false
-        
+
         let label = UILabel()
         label.text = text
         label.font = UIFont.systemFont(ofSize: 10)
         label.translatesAutoresizingMaskIntoConstraints = false
-        
+
         container.addSubview(colorView)
         container.addSubview(label)
-        
+
         NSLayoutConstraint.activate([
             colorView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             colorView.centerYAnchor.constraint(equalTo: container.centerYAnchor),
             colorView.widthAnchor.constraint(equalToConstant: 10),
             colorView.heightAnchor.constraint(equalToConstant: 10),
-            
+
             label.leadingAnchor.constraint(equalTo: colorView.trailingAnchor, constant: 4),
             label.centerYAnchor.constraint(equalTo: container.centerYAnchor),
             label.trailingAnchor.constraint(equalTo: container.trailingAnchor)
         ])
-        
+
         return container
     }
-    
+
     private func setupLocationManager() {
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        
+
         // Request location permission
         locationManager.requestWhenInUseAuthorization()
     }
-    
+
     // MARK: - Data Loading
-    
+
     private func loadStreetSweepingData() {
-        StreetSweepingDataManager.shared.loadData { [weak self] success in
+        streetRepo.loadData { [weak self] success in
             guard let self = self, success else { return }
-            
+
             // Add street segment overlays
             self.addStreetSegmentOverlays()
         }
     }
-    
+
     private func addStreetSegmentOverlays() {
-        // Get visible map area
-        let visibleRect = mapView.visibleMapRect
-        
-        // Get segments for the visible area
-        let segments = StreetSweepingDataManager.shared.segments(in: visibleRect)
-        
-        // Add polylines for each segment
-        for segment in segments {
-            let polyline = segment.polyline
-            
-            // Store the segment ID in the polyline's title for lookup
-            polyline.title = segment.id
-            
-            mapView.addOverlay(polyline)
-        }
+        // Delegate to the differential/throttled overlay updater
+        updateMapOverlays()
     }
-    
+
     private func updateMapOverlays() {
         let span = mapView.region.span
 
@@ -313,8 +236,20 @@ class MapViewController: UIViewController {
         }
 
         let visibleRect = mapView.visibleMapRect
-        let visibleSegments = StreetSweepingDataManager.shared.segments(in: visibleRect)
+        let visibleSegments = streetRepo.segments(in: visibleRect)
         let visibleIDs = Set(visibleSegments.map { $0.id })
+
+        // Rebuild color cache for visible segments
+        colorCache.removeAll(keepingCapacity: true)
+        let today = Date()
+        let cal = Calendar.current
+        let upcomingDates: [(offset: Int, date: Date)] = (1...3).compactMap { offset in
+            guard let d = cal.date(byAdding: .day, value: offset, to: today) else { return nil }
+            return (offset, d)
+        }
+        for segment in visibleSegments {
+            colorCache[segment.id] = segment.mapColorStatus(today: today, upcomingDates: upcomingDates)
+        }
 
         // Remove overlays no longer visible
         let toRemove = displayedSegmentIDs.subtracting(visibleIDs)
@@ -341,157 +276,153 @@ class MapViewController: UIViewController {
 
         displayedSegmentIDs = visibleIDs
     }
-    
+
     // MARK: - Parked Car Management
-    
+
     private func checkForParkedCar() {
-        if ParkedCarManager.shared.isCarParked, let location = ParkedCarManager.shared.parkedLocation {
+        if parkingRepo.isCarParked, let location = parkingRepo.parkedLocation {
             // Add annotation for parked car
             addParkedCarAnnotation(at: location)
-            
-            // Update UI for parked state
-            updateUIForParkedState()
-            
+
             // Check sweeping status for parked location
             checkSweepingStatusForParkedCar()
         }
     }
-    
+
     private func addParkedCarAnnotation(at location: CLLocationCoordinate2D) {
         // Remove existing annotation if any
         if let existingAnnotation = parkedCarAnnotation {
             mapView.removeAnnotation(existingAnnotation)
         }
-        
+
         // Create new annotation
         let annotation = MKPointAnnotation()
         annotation.coordinate = location
         annotation.title = "My Car"
-        
-        if let streetName = ParkedCarManager.shared.parkedStreetName {
+
+        if let streetName = parkingRepo.parkedStreetName {
             annotation.subtitle = streetName
         }
-        
+
         // Add to map
         mapView.addAnnotation(annotation)
         parkedCarAnnotation = annotation
-        
+
         // Center map on parked car
-        let region = MKCoordinateRegion(center: location, 
+        let region = MKCoordinateRegion(center: location,
                                         span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005))
         mapView.setRegion(region, animated: true)
     }
-    
-    private func updateUIForParkedState() {
-        parkButton.isHidden = true
-        clearParkButton.isHidden = false
-        statusView.isHidden = false
-    }
-    
-    private func updateUIForUnparkedState() {
-        parkButton.isHidden = false
-        clearParkButton.isHidden = true
-        statusView.isHidden = true
-    }
-    
+
     private func checkSweepingStatusForParkedCar() {
-        guard let location = ParkedCarManager.shared.parkedLocation else { return }
-        
+        guard let location = parkingRepo.parkedLocation else { return }
+
         SweepingRuleEngine.shared.analyzeSweeperStatus(for: location) { [weak self] status in
             DispatchQueue.main.async {
                 self?.updateStatusDisplay(with: status)
             }
         }
     }
-    
+
     private func updateStatusDisplay(with status: SweepingStatus) {
+        let streetName = parkingRepo.parkedStreetName ?? "Unknown Street"
+
         switch status {
         case .noData:
-            statusLabel.text = "No sweeping data for this location. This area may not have scheduled street sweeping, or it may be outside our coverage area. Check posted street signs."
-            statusView.backgroundColor = UIColor.systemYellow.withAlphaComponent(0.9)
-            
+            parkingCard.configure(for: .parked(
+                streetName: streetName,
+                statusText: "No sweeping data available",
+                statusColor: .systemGray
+            ))
+
         case .safe:
-            statusLabel.text = "No street sweeping scheduled. You're safe to park here."
-            statusView.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.9)
-            
-        case .today(let time, let streetName):
+            parkingCard.configure(for: .parked(
+                streetName: streetName,
+                statusText: "Safe to park",
+                statusColor: .systemGreen
+            ))
+
+        case .today(let time, let name):
             let timeString = formatTime(time)
-            statusLabel.text = "⚠️ Street sweeping TODAY at \(timeString) on \(streetName). Remember to move your car!"
-            statusView.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.9)
-            
-            // Schedule notification
-            ParkedCarManager.shared.scheduleNotification(for: time, streetName: streetName)
-            
-        case .imminent(let time, let streetName):
+            parkingCard.configure(for: .parked(
+                streetName: name,
+                statusText: "Sweeping today at \(timeString)",
+                statusColor: .systemOrange
+            ))
+            parkingRepo.scheduleNotification(for: time, streetName: name)
+
+        case .imminent(let time, let name):
             let timeString = formatTime(time)
-            statusLabel.text = "🚨 URGENT: Street sweeping in less than 1 hour at \(timeString) on \(streetName). Move your car NOW!"
-            statusView.backgroundColor = UIColor.systemRed.withAlphaComponent(0.9)
-            
-            // Schedule notification (if not already scheduled)
-            ParkedCarManager.shared.scheduleNotification(for: time, streetName: streetName)
-            
-        case .upcoming(let time, let streetName):
+            parkingCard.configure(for: .parked(
+                streetName: name,
+                statusText: "Sweeping imminent at \(timeString)!",
+                statusColor: .systemRed
+            ))
+            parkingRepo.scheduleNotification(for: time, streetName: name)
+
+        case .upcoming(let time, let name):
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = "EEE, MMM d"
             let dateString = dateFormatter.string(from: time)
             let timeString = formatTime(time)
-            
-            statusLabel.text = "Next street sweeping: \(dateString) at \(timeString) on \(streetName)."
-            statusView.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.9)
-            
-            // Schedule notification
-            ParkedCarManager.shared.scheduleNotification(for: time, streetName: streetName)
-            
+            parkingCard.configure(for: .parked(
+                streetName: name,
+                statusText: "Next: \(dateString) at \(timeString)",
+                statusColor: .systemBlue
+            ))
+            parkingRepo.scheduleNotification(for: time, streetName: name)
+
         case .unknown:
-            statusLabel.text = "Could not determine street sweeping schedule. Check local signs."
-            statusView.backgroundColor = UIColor.systemGray.withAlphaComponent(0.9)
+            parkingCard.configure(for: .parked(
+                streetName: streetName,
+                statusText: "Unable to determine status",
+                statusColor: .systemGray
+            ))
         }
     }
-    
+
     private func formatTime(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
         return formatter.string(from: date)
     }
-    
+
     // MARK: - Action Handlers
-    
+
     @objc private func parkButtonTapped() {
         guard let location = locationManager.location?.coordinate else {
             showAlert(title: "Location Unavailable", message: "Please enable location services to use this feature.")
             return
         }
-        
+
         // Get street name (async with geocoding fallback) and then save/update
         findStreetName(for: location) { [weak self] streetName in
-            ParkedCarManager.shared.parkCar(at: location, streetName: streetName)
+            self?.parkingRepo.parkCar(at: location, streetName: streetName)
             self?.addParkedCarAnnotation(at: location)
-            self?.updateUIForParkedState()
             self?.checkSweepingStatusForParkedCar()
         }
     }
-    
+
     @objc private func clearParkButtonTapped() {
         // Clear parked car data
-        ParkedCarManager.shared.clearParkedCar()
-        
+        parkingRepo.clearParkedCar()
+
         // Remove annotation
         if let parkedAnnotation = parkedCarAnnotation {
             mapView.removeAnnotation(parkedAnnotation)
             parkedCarAnnotation = nil
         }
-        
-        // Update UI
-        updateUIForUnparkedState()
+
+        // Update card
+        parkingCard.configure(for: .notParked)
     }
-    
+
     @objc private func parkedCarStatusChanged() {
         // Update UI when parked car status changes (called from NotificationCenter)
-        if ParkedCarManager.shared.isCarParked {
+        if parkingRepo.isCarParked {
             // Car is parked
-            if let location = ParkedCarManager.shared.parkedLocation {
+            if let location = parkingRepo.parkedLocation {
                 addParkedCarAnnotation(at: location)
-                updateUIForParkedState()
                 checkSweepingStatusForParkedCar()
             }
         } else {
@@ -500,12 +431,12 @@ class MapViewController: UIViewController {
                 mapView.removeAnnotation(parkedAnnotation)
                 parkedCarAnnotation = nil
             }
-            updateUIForUnparkedState()
+            parkingCard.configure(for: .notParked)
         }
     }
-    
+
     @objc private func settingsTapped() {
-        let current = ParkedCarManager.shared.notificationLeadMinutes
+        let current = parkingRepo.notificationLeadMinutes
         let alert = UIAlertController(
             title: "Notification Lead Time",
             message: "How far in advance should we notify you? Currently: \(current) minutes",
@@ -514,8 +445,8 @@ class MapViewController: UIViewController {
         for minutes in [15, 30, 60, 120] {
             let title = minutes < 60 ? "\(minutes) minutes" : "\(minutes / 60) hour\(minutes > 60 ? "s" : "")"
             let style: UIAlertAction.Style = minutes == current ? .destructive : .default
-            alert.addAction(UIAlertAction(title: title, style: style) { _ in
-                ParkedCarManager.shared.notificationLeadMinutes = minutes
+            alert.addAction(UIAlertAction(title: title, style: style) { [weak self] _ in
+                self?.parkingRepo.notificationLeadMinutes = minutes
             })
         }
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -523,17 +454,17 @@ class MapViewController: UIViewController {
     }
 
     @objc private func handleLongPress(_ gestureRecognizer: UILongPressGestureRecognizer) {
-        guard ParkedCarManager.shared.isCarParked, let parkedAnnotation = parkedCarAnnotation else { return }
-        
+        guard parkingRepo.isCarParked, let parkedAnnotation = parkedCarAnnotation else { return }
+
         if gestureRecognizer.state == .began {
             // Start pin adjustment
             let touchPoint = gestureRecognizer.location(in: mapView)
             let touchCoordinate = mapView.convert(touchPoint, toCoordinateFrom: mapView)
-            
+
             // Check if the touch is near the parked car annotation
             let touchMapPoint = MKMapPoint(touchCoordinate)
             let annotationMapPoint = MKMapPoint(parkedAnnotation.coordinate)
-            
+
             let distance = touchMapPoint.distance(to: annotationMapPoint)
             if distance < 500 { // Threshold in map points
                 isAdjustingPin = true
@@ -548,21 +479,21 @@ class MapViewController: UIViewController {
             // Update pin location
             let touchPoint = gestureRecognizer.location(in: mapView)
             let newCoordinate = mapView.convert(touchPoint, toCoordinateFrom: mapView)
-            
+
             parkedAnnotation.coordinate = newCoordinate
         } else if gestureRecognizer.state == .ended && isAdjustingPin {
             // Finish adjustment
             let touchPoint = gestureRecognizer.location(in: mapView)
             let finalCoordinate = mapView.convert(touchPoint, toCoordinateFrom: mapView)
-            
+
             // Update saved location
-            ParkedCarManager.shared.updateParkedLocation(to: finalCoordinate)
-            
+            parkingRepo.updateParkedLocation(to: finalCoordinate)
+
             // Get street name (async with geocoding fallback) and update annotation
             findStreetName(for: finalCoordinate) { streetName in
                 parkedAnnotation.subtitle = streetName
             }
-            
+
             // Check sweeping status for new location
             checkSweepingStatusForParkedCar()
 
@@ -575,12 +506,100 @@ class MapViewController: UIViewController {
             isAdjustingPin = false
         }
     }
-    
+
+    // MARK: - Map Tap → Street Detail
+
+    @objc private func handleMapTap(_ gestureRecognizer: UITapGestureRecognizer) {
+        guard gestureRecognizer.state == .ended else { return }
+
+        let tapPoint = gestureRecognizer.location(in: mapView)
+        let tapCoordinate = mapView.convert(tapPoint, toCoordinateFrom: mapView)
+        let tapMapPoint = MKMapPoint(tapCoordinate)
+
+        // Calculate hit-test threshold in meters based on zoom level
+        let metersPerPixel = mapView.region.span.latitudeDelta * 111_000 / Double(mapView.bounds.height)
+        let thresholdMeters = metersPerPixel * 30.0
+
+        var closestPolyline: MKPolyline?
+        var closestDistance = Double.greatestFiniteMagnitude
+
+        for overlay in mapView.overlays {
+            guard let polyline = overlay as? MKPolyline else { continue }
+
+            let pointCount = polyline.pointCount
+            guard pointCount >= 2 else { continue }
+
+            let points = polyline.points()
+
+            for i in 0..<(pointCount - 1) {
+                let a = points[i]
+                let b = points[i + 1]
+                let dist = perpendicularDistance(from: tapMapPoint, toLineFrom: a, to: b)
+                if dist < closestDistance {
+                    closestDistance = dist
+                    closestPolyline = polyline
+                }
+            }
+        }
+
+        // Convert closest distance to meters
+        guard let polyline = closestPolyline, closestDistance < thresholdMeters else { return }
+
+        guard let segmentID = polyline.title,
+              let segment = streetRepo.segment(byID: segmentID) else { return }
+
+        presentStreetDetail(for: segment)
+    }
+
+    /// Perpendicular distance from a point to a line segment, in meters.
+    private func perpendicularDistance(from point: MKMapPoint, toLineFrom a: MKMapPoint, to b: MKMapPoint) -> Double {
+        let dx = b.x - a.x
+        let dy = b.y - a.y
+        let lengthSq = dx * dx + dy * dy
+
+        guard lengthSq > 0 else {
+            return point.distance(to: a)
+        }
+
+        // Project point onto line, clamping t to [0, 1]
+        var t = ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSq
+        t = max(0, min(1, t))
+
+        let projection = MKMapPoint(x: a.x + t * dx, y: a.y + t * dy)
+        return point.distance(to: projection)
+    }
+
+    private func presentStreetDetail(for segment: StreetSegment) {
+        let detailVC = StreetDetailViewController(segment: segment)
+        detailVC.delegate = self
+
+        if #available(iOS 15.0, *) {
+            if let sheet = detailVC.sheetPresentationController {
+                sheet.detents = [.medium()]
+                sheet.prefersGrabberVisible = true
+            }
+            present(detailVC, animated: true)
+        } else {
+            detailVC.modalPresentationStyle = .pageSheet
+            let nav = UINavigationController(rootViewController: detailVC)
+            nav.navigationBar.topItem?.rightBarButtonItem = UIBarButtonItem(
+                barButtonSystemItem: .close,
+                target: self,
+                action: #selector(dismissPresentedSheet)
+            )
+            present(nav, animated: true)
+        }
+    }
+
+    @objc private func dismissPresentedSheet() {
+        dismiss(animated: true)
+    }
+
     // MARK: - Helper Methods
-    
+
     private func findStreetName(for coordinate: CLLocationCoordinate2D, completion: @escaping (String) -> Void) {
         // Try sweeping data first
-        if let segment = StreetSweepingDataManager.shared.findSegment(near: coordinate) {
+        if let segment = streetRepo.findSegment(near: coordinate) {
             completion(segment.streetName)
             return
         }
@@ -590,7 +609,7 @@ class MapViewController: UIViewController {
             completion(placemarks?.first?.thoroughfare ?? "Unknown Street")
         }
     }
-    
+
     private func showAlert(title: String, message: String) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
@@ -605,14 +624,9 @@ extension MapViewController: MKMapViewDelegate {
         if let polyline = overlay as? MKPolyline {
             let renderer = MKPolylineRenderer(polyline: polyline)
             renderer.lineWidth = 5
-            
-            // Get segment for this polyline
-            if let segmentID = polyline.title,
-               let segment = StreetSweepingDataManager.shared.segments(in: mapView.visibleMapRect)
-                .first(where: { $0.id == segmentID }) {
-                
-                // Color based on sweeping urgency
-                switch segment.mapColorStatus() {
+
+            if let segmentID = polyline.title, let status = colorCache[segmentID] {
+                switch status {
                 case .red:
                     renderer.strokeColor = .systemRed
                 case .orange:
@@ -623,51 +637,50 @@ extension MapViewController: MKMapViewDelegate {
                     renderer.strokeColor = .systemGreen
                 }
             } else {
-                // Default color
                 renderer.strokeColor = .systemGray
             }
-            
+
             return renderer
         }
-        
+
         return MKOverlayRenderer(overlay: overlay)
     }
-    
+
     func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
         // Handle selection of annotations (e.g., showing more details about the parked car)
         guard let annotation = view.annotation else { return }
-        
+
         // If it's a parked car annotation
         if annotation === parkedCarAnnotation {
             // Show status info
             checkSweepingStatusForParkedCar()
         }
     }
-    
+
     func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
         // Custom view for our parked car annotation
         if annotation === parkedCarAnnotation {
             let identifier = "parkedCar"
-            
+
             var annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier)
-            
+
             if annotationView == nil {
                 annotationView = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
                 annotationView?.canShowCallout = true
             } else {
                 annotationView?.annotation = annotation
             }
-            
+
             let markerView = annotationView as? MKMarkerAnnotationView
             markerView?.markerTintColor = .systemBlue
             markerView?.glyphImage = UIImage(systemName: "car.fill")
-            
+
             return annotationView
         }
-        
+
         return nil
     }
-    
+
     func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
         overlayUpdateTimer?.invalidate()
         overlayUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
@@ -681,29 +694,29 @@ extension MapViewController: MKMapViewDelegate {
 extension MapViewController: UISearchBarDelegate {
     func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
         searchBar.resignFirstResponder()
-        
+
         guard let searchText = searchBar.text, !searchText.isEmpty else {
             return
         }
-        
+
         // Geocode the address
         let geocoder = CLGeocoder()
         geocoder.geocodeAddressString(searchText) { [weak self] placemarks, error in
             guard let self = self else { return }
-            
+
             if let error = error {
                 self.showAlert(title: "Geocoding Error", message: error.localizedDescription)
                 return
             }
-            
+
             guard let placemark = placemarks?.first,
                   let location = placemark.location?.coordinate else {
                 self.showAlert(title: "Location Not Found", message: "Could not find the address.")
                 return
             }
-            
+
             // Center map on the location
-            let region = MKCoordinateRegion(center: location, 
+            let region = MKCoordinateRegion(center: location,
                                             span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
             self.mapView.setRegion(region, animated: true)
         }
@@ -737,7 +750,7 @@ extension MapViewController: CLLocationManagerDelegate {
             break
         }
     }
-    
+
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last?.coordinate else { return }
         currentLocation = location
@@ -752,8 +765,34 @@ extension MapViewController: CLLocationManagerDelegate {
 
         locationManager.stopUpdatingLocation()
     }
-    
+
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         print("Location manager error: \(error.localizedDescription)")
     }
-} 
+}
+
+// MARK: - ParkingCardDelegate
+
+extension MapViewController: ParkingCardDelegate {
+    func parkingCardDidTapParkHere() {
+        parkButtonTapped()
+    }
+
+    func parkingCardDidTapClearParking() {
+        clearParkButtonTapped()
+    }
+
+    func parkingCardDidTapSettings() {
+        settingsTapped()
+    }
+}
+
+// MARK: - StreetDetailDelegate
+
+extension MapViewController: StreetDetailDelegate {
+    func streetDetailDidParkHere(at coordinate: CLLocationCoordinate2D, streetName: String) {
+        parkingRepo.parkCar(at: coordinate, streetName: streetName)
+        addParkedCarAnnotation(at: coordinate)
+        checkSweepingStatusForParkedCar()
+    }
+}

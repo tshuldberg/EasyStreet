@@ -7,18 +7,27 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		029961C6BAFBBAB029B17236 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_3A001293-546C-478B-A5CC-30ADD7FD7644" /* LaunchScreen.storyboard */; };
 		0D41A4172D33E17EA5A6DDDC /* SweepingRuleEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AD045602739A4A3410D6A3B /* SweepingRuleEngineTests.swift */; };
 		0EA73A1B0CD318A0C9983191 /* SweepingRuleEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5FA5359CF40EA1094CB29C0 /* SweepingRuleEngine.swift */; };
-		2B7247A6B142914D41E1FDA6 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_27233659-D4C5-4537-9384-23EFE0CE6F6D" /* AppDelegate.swift */; };
+		1D94599A73A6C1070DE46F4E /* ParkingRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 785A8A505F1F7300484852EB /* ParkingRepository.swift */; };
+		2274F2A483654A7CD5154BC7 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_0DACB574-0406-4E30-B181-2E414777232E" /* LaunchScreen.storyboard */; };
+		2B74C32A3DA95FCD0AEAA063 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 238D1BC52B46EF1EE811B1C2 /* libsqlite3.tbd */; };
 		2F1DFFF5E43327D07FC06F72 /* StreetSweepingData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F918729EE3FC1B5C228DD5C /* StreetSweepingData.swift */; };
-		3552A535AA895AD240588705 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_879463D4-1C58-48B1-842F-369F6F6779F8" /* SceneDelegate.swift */; };
+		4158AB6A8C7911682EFB1BA7 /* StreetRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435C724A0547DCF1B8116F1C /* StreetRepository.swift */; };
+		43D3E171A05002E695873074 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_3F695877-46F1-402C-AFE3-F3F86BDC0A2A" /* SceneDelegate.swift */; };
+		4736C35D84A11D7188AAF6BB /* DatabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C9AFE35B91C540152709EBF /* DatabaseManager.swift */; };
+		50A81F1A0D9B44267E48BA21 /* StreetDetailViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BB89833A27822D5C8374C34 /* StreetDetailViewController.swift */; };
+		65EAF0FC63D1E8080DD3FBFA /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_8B3596BC-836A-42B8-8832-D02462E67813" /* AppDelegate.swift */; };
+		69A60DA970B6D0E66C294146 /* ParkingCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0CEA45D1E26341DDB7A90E4 /* ParkingCardView.swift */; };
 		791157B5CBA6B552C21279AC /* ParkedCar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70BF8D06C110A60A014D36AF /* ParkedCar.swift */; };
+		79DD4DA6D66D1039CD2E66A3 /* convert_json_to_sqlite.py in Resources */ = {isa = PBXBuildFile; fileRef = 12D6D161E20F39DC24A42116 /* convert_json_to_sqlite.py */; };
+		96E117E3EEF0EB047C768310 /* sweeping_data_sf.json in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_86C2E1A4-C3C5-4710-A6E7-18FBB22A9AE7" /* sweeping_data_sf.json */; };
 		CB8C863BAFCBDD45F18A5BB8 /* HolidayCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A3E0A2271716CA4760307E /* HolidayCalculator.swift */; };
 		D60A42105620BA5DBBB6CEB9 /* MapViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93AC530761EE1086B5E7FCDD /* MapViewController.swift */; };
+		E8A3972F2D03E2B74628902F /* easystreet.db in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_0306C8C1-06DC-467A-BCC6-9AFB211673DB" /* easystreet.db */; };
 		F0946001359CB1BC1C646F50 /* HolidayCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2325A19C259C4130A6FABD5 /* HolidayCalculatorTests.swift */; };
 		F91BB1E359D467301BCAF76B /* MapColorStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D167FA1D3F383D1C71A106EF /* MapColorStatusTests.swift */; };
-		FC41C1F4B9F7FB0BF4F90314 /* sweeping_data_sf.json in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_BC493201-7453-4E09-BBB5-2B9F94474C62" /* sweeping_data_sf.json */; };
+		FCA0FD8277DC99840AEE0300 /* SpatialIndexTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AC1A71D5438D1AA53C2A696 /* SpatialIndexTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,31 +43,73 @@
 /* Begin PBXFileReference section */
 		0AD045602739A4A3410D6A3B /* SweepingRuleEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SweepingRuleEngineTests.swift; sourceTree = "<group>"; };
 		0F8C57F542560F095A693733 /* EasyStreet.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = EasyStreet.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		12D6D161E20F39DC24A42116 /* convert_json_to_sqlite.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = convert_json_to_sqlite.py; sourceTree = "<group>"; };
+		1BB89833A27822D5C8374C34 /* StreetDetailViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreetDetailViewController.swift; sourceTree = "<group>"; };
+		238D1BC52B46EF1EE811B1C2 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
+		435C724A0547DCF1B8116F1C /* StreetRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreetRepository.swift; sourceTree = "<group>"; };
+		4C9AFE35B91C540152709EBF /* DatabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager.swift; sourceTree = "<group>"; };
+		5AC1A71D5438D1AA53C2A696 /* SpatialIndexTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialIndexTests.swift; sourceTree = "<group>"; };
 		6F918729EE3FC1B5C228DD5C /* StreetSweepingData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreetSweepingData.swift; sourceTree = "<group>"; };
 		70BF8D06C110A60A014D36AF /* ParkedCar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkedCar.swift; sourceTree = "<group>"; };
+		785A8A505F1F7300484852EB /* ParkingRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingRepository.swift; sourceTree = "<group>"; };
 		93AC530761EE1086B5E7FCDD /* MapViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapViewController.swift; sourceTree = "<group>"; };
 		B2A3E0A2271716CA4760307E /* HolidayCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HolidayCalculator.swift; sourceTree = "<group>"; };
 		C2325A19C259C4130A6FABD5 /* HolidayCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HolidayCalculatorTests.swift; sourceTree = "<group>"; };
 		C5FA5359CF40EA1094CB29C0 /* SweepingRuleEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SweepingRuleEngine.swift; sourceTree = "<group>"; };
+		D0CEA45D1E26341DDB7A90E4 /* ParkingCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingCardView.swift; sourceTree = "<group>"; };
 		D0D3B302DE0A3FB2F31786DB /* EasyStreetTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = EasyStreetTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D167FA1D3F383D1C71A106EF /* MapColorStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapColorStatusTests.swift; sourceTree = "<group>"; };
-		"TEMP_27233659-D4C5-4537-9384-23EFE0CE6F6D" /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		"TEMP_3A001293-546C-478B-A5CC-30ADD7FD7644" /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
-		"TEMP_3F8F3B77-3733-4E37-9CEB-D6838F7ED860" /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		"TEMP_879463D4-1C58-48B1-842F-369F6F6779F8" /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
-		"TEMP_BC493201-7453-4E09-BBB5-2B9F94474C62" /* sweeping_data_sf.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sweeping_data_sf.json; sourceTree = "<group>"; };
+		"TEMP_0306C8C1-06DC-467A-BCC6-9AFB211673DB" /* easystreet.db */ = {isa = PBXFileReference; path = easystreet.db; sourceTree = "<group>"; };
+		"TEMP_0DACB574-0406-4E30-B181-2E414777232E" /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		"TEMP_3F695877-46F1-402C-AFE3-F3F86BDC0A2A" /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		"TEMP_86C2E1A4-C3C5-4710-A6E7-18FBB22A9AE7" /* sweeping_data_sf.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sweeping_data_sf.json; sourceTree = "<group>"; };
+		"TEMP_8B3596BC-836A-42B8-8832-D02462E67813" /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		"TEMP_BA2A8DE3-1E6F-4BBF-8569-3A9905140788" /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFrameworksBuildPhase section */
+		06C33CEBB567B2CE2C62E5BD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2B74C32A3DA95FCD0AEAA063 /* libsqlite3.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
 /* Begin PBXGroup section */
+		109BBBC6FA2FA5875CEAB48C /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				D0CEA45D1E26341DDB7A90E4 /* ParkingCardView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
 		223DDE377931B138E6EAB63D = {
 			isa = PBXGroup;
 			children = (
 				95B23ACF3A4690430D6470CD /* Controllers */,
+				275B9FFFBDE239EC8ED1E45F /* Data */,
 				B70DCEFC42D6F724D48B4F0A /* EasyStreet */,
 				642021DD8584264E52913303 /* Models */,
+				DBD2479F37C57E55DACD75E8 /* tools */,
 				62F855B908F2BECFE2273D86 /* Utils */,
+				109BBBC6FA2FA5875CEAB48C /* Views */,
+				7825675030022747C9DDDD41 /* Frameworks */,
 				EFF42E369162A4F198FDF8D2 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		275B9FFFBDE239EC8ED1E45F /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				4C9AFE35B91C540152709EBF /* DatabaseManager.swift */,
+				785A8A505F1F7300484852EB /* ParkingRepository.swift */,
+				435C724A0547DCF1B8116F1C /* StreetRepository.swift */,
+			);
+			path = Data;
 			sourceTree = "<group>";
 		};
 		62F855B908F2BECFE2273D86 /* Utils */ = {
@@ -79,10 +130,19 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		7825675030022747C9DDDD41 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				238D1BC52B46EF1EE811B1C2 /* libsqlite3.tbd */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		95B23ACF3A4690430D6470CD /* Controllers */ = {
 			isa = PBXGroup;
 			children = (
 				93AC530761EE1086B5E7FCDD /* MapViewController.swift */,
+				1BB89833A27822D5C8374C34 /* StreetDetailViewController.swift */,
 			);
 			path = Controllers;
 			sourceTree = "<group>";
@@ -101,9 +161,18 @@
 			children = (
 				C2325A19C259C4130A6FABD5 /* HolidayCalculatorTests.swift */,
 				D167FA1D3F383D1C71A106EF /* MapColorStatusTests.swift */,
+				5AC1A71D5438D1AA53C2A696 /* SpatialIndexTests.swift */,
 				0AD045602739A4A3410D6A3B /* SweepingRuleEngineTests.swift */,
 			);
 			path = EasyStreetTests;
+			sourceTree = "<group>";
+		};
+		DBD2479F37C57E55DACD75E8 /* tools */ = {
+			isa = PBXGroup;
+			children = (
+				12D6D161E20F39DC24A42116 /* convert_json_to_sqlite.py */,
+			);
+			path = tools;
 			sourceTree = "<group>";
 		};
 		EFF42E369162A4F198FDF8D2 /* Products */ = {
@@ -115,17 +184,21 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		"TEMP_6990C9C9-CC12-48AF-8807-A1778B972195" /* EasyStreet */ = {
+		"TEMP_B40B8F5C-AA7D-4204-A3A0-6705A8064951" /* EasyStreet */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_3A001293-546C-478B-A5CC-30ADD7FD7644" /* LaunchScreen.storyboard */,
-				"TEMP_27233659-D4C5-4537-9384-23EFE0CE6F6D" /* AppDelegate.swift */,
-				"TEMP_BC493201-7453-4E09-BBB5-2B9F94474C62" /* sweeping_data_sf.json */,
-				"TEMP_3F8F3B77-3733-4E37-9CEB-D6838F7ED860" /* Info.plist */,
-				"TEMP_879463D4-1C58-48B1-842F-369F6F6779F8" /* SceneDelegate.swift */,
+				"TEMP_0DACB574-0406-4E30-B181-2E414777232E" /* LaunchScreen.storyboard */,
+				"TEMP_0306C8C1-06DC-467A-BCC6-9AFB211673DB" /* easystreet.db */,
+				"TEMP_8B3596BC-836A-42B8-8832-D02462E67813" /* AppDelegate.swift */,
+				"TEMP_86C2E1A4-C3C5-4710-A6E7-18FBB22A9AE7" /* sweeping_data_sf.json */,
+				"TEMP_BA2A8DE3-1E6F-4BBF-8569-3A9905140788" /* Info.plist */,
+				"TEMP_3F695877-46F1-402C-AFE3-F3F86BDC0A2A" /* SceneDelegate.swift */,
+				DBD2479F37C57E55DACD75E8 /* tools */,
 				62F855B908F2BECFE2273D86 /* Utils */,
 				642021DD8584264E52913303 /* Models */,
 				95B23ACF3A4690430D6470CD /* Controllers */,
+				275B9FFFBDE239EC8ED1E45F /* Data */,
+				109BBBC6FA2FA5875CEAB48C /* Views */,
 			);
 			path = EasyStreet;
 			sourceTree = "<group>";
@@ -157,6 +230,7 @@
 			buildPhases = (
 				4F70858C0D39FC5521E59B12 /* Sources */,
 				6E6026529F57454056911614 /* Resources */,
+				06C33CEBB567B2CE2C62E5BD /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -203,8 +277,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				029961C6BAFBBAB029B17236 /* LaunchScreen.storyboard in Resources */,
-				FC41C1F4B9F7FB0BF4F90314 /* sweeping_data_sf.json in Resources */,
+				2274F2A483654A7CD5154BC7 /* LaunchScreen.storyboard in Resources */,
+				79DD4DA6D66D1039CD2E66A3 /* convert_json_to_sqlite.py in Resources */,
+				E8A3972F2D03E2B74628902F /* easystreet.db in Resources */,
+				96E117E3EEF0EB047C768310 /* sweeping_data_sf.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -215,11 +291,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2B7247A6B142914D41E1FDA6 /* AppDelegate.swift in Sources */,
+				65EAF0FC63D1E8080DD3FBFA /* AppDelegate.swift in Sources */,
+				4736C35D84A11D7188AAF6BB /* DatabaseManager.swift in Sources */,
 				CB8C863BAFCBDD45F18A5BB8 /* HolidayCalculator.swift in Sources */,
 				D60A42105620BA5DBBB6CEB9 /* MapViewController.swift in Sources */,
 				791157B5CBA6B552C21279AC /* ParkedCar.swift in Sources */,
-				3552A535AA895AD240588705 /* SceneDelegate.swift in Sources */,
+				69A60DA970B6D0E66C294146 /* ParkingCardView.swift in Sources */,
+				1D94599A73A6C1070DE46F4E /* ParkingRepository.swift in Sources */,
+				43D3E171A05002E695873074 /* SceneDelegate.swift in Sources */,
+				50A81F1A0D9B44267E48BA21 /* StreetDetailViewController.swift in Sources */,
+				4158AB6A8C7911682EFB1BA7 /* StreetRepository.swift in Sources */,
 				2F1DFFF5E43327D07FC06F72 /* StreetSweepingData.swift in Sources */,
 				0EA73A1B0CD318A0C9983191 /* SweepingRuleEngine.swift in Sources */,
 			);
@@ -231,6 +312,7 @@
 			files = (
 				F0946001359CB1BC1C646F50 /* HolidayCalculatorTests.swift in Sources */,
 				F91BB1E359D467301BCAF76B /* MapColorStatusTests.swift in Sources */,
+				FCA0FD8277DC99840AEE0300 /* SpatialIndexTests.swift in Sources */,
 				0D41A4172D33E17EA5A6DDDC /* SweepingRuleEngineTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

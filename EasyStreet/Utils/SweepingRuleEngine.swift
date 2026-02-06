@@ -18,7 +18,7 @@ class SweepingRuleEngine {
     ///   - completion: Completion handler with sweeping status result
     func analyzeSweeperStatus(for location: CLLocationCoordinate2D, completion: @escaping (SweepingStatus) -> Void) {
         // Get the street segment for this location
-        guard let segment = StreetSweepingDataManager.shared.findSegment(near: location) else {
+        guard let segment = StreetRepository.shared.findSegment(near: location) else {
             completion(.noData)
             return
         }
