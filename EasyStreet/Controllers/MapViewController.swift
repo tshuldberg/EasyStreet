@@ -72,6 +72,7 @@ class MapViewController: UIViewController {
     private var currentLocation: CLLocationCoordinate2D?
     private var parkedCarAnnotation: MKPointAnnotation?
     private var isAdjustingPin = false
+    private var hasInitiallyLocated = false
     private var displayedSegmentIDs: Set<String> = []
     private var overlayUpdateTimer: Timer?
     
@@ -536,6 +537,12 @@ class MapViewController: UIViewController {
             let distance = touchMapPoint.distance(to: annotationMapPoint)
             if distance < 500 { // Threshold in map points
                 isAdjustingPin = true
+                if let annotationView = mapView.view(for: parkedAnnotation) {
+                    UIView.animate(withDuration: 0.2) {
+                        annotationView.transform = CGAffineTransform(scaleX: 1.3, y: 1.3)
+                        annotationView.alpha = 0.8
+                    }
+                }
             }
         } else if gestureRecognizer.state == .changed && isAdjustingPin {
             // Update pin location
@@ -558,7 +565,13 @@ class MapViewController: UIViewController {
             
             // Check sweeping status for new location
             checkSweepingStatusForParkedCar()
-            
+
+            if let annotationView = mapView.view(for: parkedAnnotation) {
+                UIView.animate(withDuration: 0.2) {
+                    annotationView.transform = .identity
+                    annotationView.alpha = 1.0
+                }
+            }
             isAdjustingPin = false
         }
     }
@@ -727,18 +740,16 @@ extension MapViewController: CLLocationManagerDelegate {
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last?.coordinate else { return }
-        
-        // Save the current location
         currentLocation = location
-        
-        // Only center map on user if they haven't moved it themselves
-        if !mapView.isUserInteractionEnabled {
-            let region = MKCoordinateRegion(center: location, 
+
+        // Only center map on first location fix
+        if !hasInitiallyLocated {
+            hasInitiallyLocated = true
+            let region = MKCoordinateRegion(center: location,
                                             span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
             mapView.setRegion(region, animated: true)
         }
-        
-        // We don't need continuous updates for this app
+
         locationManager.stopUpdatingLocation()
     }
     
