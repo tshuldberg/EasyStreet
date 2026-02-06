@@ -25,13 +25,10 @@
         android:theme="@style/Theme.EasyStreetAndroid"
         tools:targetApi="31">
 
-        <!--
-             TODO: Before running your application, you need a Google Maps API key.
-             Once you have your key, replace "YOUR_KEY_HERE" with your real key.
-        -->
+        <!-- Google Maps API key loaded from local.properties (MAPS_API_KEY) -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="YOUR_KEY_HERE" />
+            android:value="${MAPS_API_KEY}" />
 
         <activity
             android:name=".MainActivity"
