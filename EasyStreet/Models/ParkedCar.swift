@@ -18,6 +18,7 @@ class ParkedCarManager {
         static let parkedLongitude = "parkedLongitude"
         static let parkedTimestamp = "parkedTimestamp"
         static let parkedStreetName = "parkedStreetName"
+        static let notificationLeadMinutes = "notificationLeadMinutes"
     }
 
     private init() {}
@@ -50,6 +51,17 @@ class ParkedCarManager {
     /// Get street name where car is parked
     var parkedStreetName: String? {
         return UserDefaults.standard.string(forKey: UserDefaultsKeys.parkedStreetName)
+    }
+
+    /// Notification lead time in minutes (default: 60)
+    var notificationLeadMinutes: Int {
+        get {
+            let stored = UserDefaults.standard.integer(forKey: UserDefaultsKeys.notificationLeadMinutes)
+            return stored > 0 ? stored : 60
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: UserDefaultsKeys.notificationLeadMinutes)
+        }
     }
 
     /// Save parked car location
@@ -116,8 +128,9 @@ class ParkedCarManager {
             content.body = "Street sweeping soon at \(streetName)! Move your car by \(self.formatTime(sweepingTime))."
             content.sound = .default
 
-            // For MVP, we'll set the notification to 1 hour before sweeping
-            let notificationTime = sweepingTime.addingTimeInterval(-3600) // 1 hour earlier
+            // Notify user ahead of sweeping by configurable lead time
+            let leadSeconds = TimeInterval(self.notificationLeadMinutes * 60)
+            let notificationTime = sweepingTime.addingTimeInterval(-leadSeconds)
 
             // Only schedule if notification time is in the future
             guard notificationTime > Date() else {
