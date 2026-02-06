@@ -53,15 +53,14 @@ class SweepingRuleEngine {
                 let formatter = DateFormatter()
                 formatter.dateFormat = "HH:mm"
                 
-                guard let startTimeString = todayRule.startTime.components(separatedBy: ":").joined().count == 4 ? 
-                        todayRule.startTime : "0\(todayRule.startTime)",
-                      let startTime = formatter.date(from: startTimeString) else {
+                let startTimeString = todayRule.startTime
+                guard let startTime = formatter.date(from: startTimeString) else {
                     completion(.unknown)
                     return
                 }
                 
                 // Set time components only (keep today's date)
-                var sweepingDateTime = calendar.date(bySettingHour: calendar.component(.hour, from: startTime),
+                let sweepingDateTime = calendar.date(bySettingHour: calendar.component(.hour, from: startTime),
                                                      minute: calendar.component(.minute, from: startTime),
                                                      second: 0,
                                                      of: today)!
@@ -89,7 +88,8 @@ class SweepingRuleEngine {
             }
         } else {
             // Check for next upcoming sweeping
-            if let (nextDate, rule) = segment.nextSweeping() {
+            let (nextDate, _) = segment.nextSweeping()
+            if let nextDate = nextDate {
                 completion(.upcoming(time: nextDate, streetName: segment.streetName))
             } else {
                 completion(.safe)

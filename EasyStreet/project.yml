@@ -1,0 +1,40 @@
+name: EasyStreet
+options:
+  bundleIdPrefix: com.easystreet
+  deploymentTarget:
+    iOS: "14.0"
+  createIntermediateGroups: true
+
+targets:
+  EasyStreet:
+    type: application
+    platform: iOS
+    sources:
+      - path: .
+        excludes:
+          - "*.md"
+          - "*.csv"
+          - "EasyStreet.xcodeproj"
+          - "project.yml"
+    resources:
+      - path: LaunchScreen.storyboard
+      - path: Info.plist
+        buildPhase: none
+    settings:
+      base:
+        INFOPLIST_FILE: Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.easystreet.app
+        TARGETED_DEVICE_FAMILY: 1
+        SWIFT_VERSION: "5.0"
+
+  EasyStreetTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: ../EasyStreetTests
+    dependencies:
+      - target: EasyStreet
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.easystreet.app.tests
+        SWIFT_VERSION: "5.0"
