@@ -125,6 +125,15 @@ In Xcode:
 1. Select a simulator (e.g., iPhone 15) from the device dropdown
 2. Press **Cmd + B** to build
 3. Press **Cmd + R** to run
+4. Press **Cmd + U** to run tests
+
+If you need to regenerate the Xcode project (e.g., after adding new Swift files):
+
+```bash
+brew install xcodegen  # one-time
+cd EasyStreet
+xcodegen generate
+```
 
 ---
 
@@ -339,6 +348,7 @@ EasyStreet/
 | Start Claude Code | `claude` (from project root) |
 | Build iOS | Cmd + B in Xcode |
 | Run iOS | Cmd + R in Xcode |
+| Test iOS | Cmd + U in Xcode |
 | Build Android | `cd EasyStreet_Android && ./gradlew assembleDebug` |
 | Test Android | `cd EasyStreet_Android && ./gradlew test` |
 | Check git status | `git status` |

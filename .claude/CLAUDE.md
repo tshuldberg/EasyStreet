@@ -41,10 +41,12 @@ EasyStreet/
 - Notifications: UserNotifications framework
 
 ### Build & Test Commands
-- **Build:** Open in Xcode, Product > Build (⌘B)
-- **Run:** Product > Run (⌘R)
-- **Test:** Product > Test (⌘U)
-- **Clean:** Product > Clean Build Folder (⇧⌘K)
+- **Open:** `open EasyStreet/EasyStreet.xcodeproj`
+- **Build:** ⌘B in Xcode, or `xcodebuild -project EasyStreet/EasyStreet.xcodeproj -scheme EasyStreet -sdk iphonesimulator build`
+- **Run:** ⌘R in Xcode
+- **Test:** ⌘U in Xcode, or `xcodebuild test -project EasyStreet/EasyStreet.xcodeproj -scheme EasyStreet -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 15'`
+- **Clean:** ⇧⌘K in Xcode
+- **Regenerate project:** `cd EasyStreet && xcodegen generate` (after adding/removing files)
 
 ### Code Style
 - Follow Swift standard conventions
@@ -478,8 +480,14 @@ If user asks to "update timeline" or "document this session":
 # Open project in Xcode
 open EasyStreet/EasyStreet.xcodeproj
 
-# Build from command line (if needed)
-xcodebuild -project EasyStreet.xcodeproj -scheme EasyStreet build
+# Regenerate project (after adding/removing Swift files)
+cd EasyStreet && xcodegen generate
+
+# Build from command line
+xcodebuild -project EasyStreet/EasyStreet.xcodeproj -scheme EasyStreet -sdk iphonesimulator build
+
+# Run tests from command line
+xcodebuild test -project EasyStreet/EasyStreet.xcodeproj -scheme EasyStreet -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 15'
 ```
 
 ### Android Commands
