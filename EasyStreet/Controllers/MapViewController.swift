@@ -40,8 +40,10 @@ class MapViewController: UIViewController {
     private var hasInitiallyLocated = false
     private var displayedSegmentIDs: Set<String> = []
     private var colorCache: [String: StreetSegment.MapColorStatus] = [:]
+    private var colorCacheDay: Int = -1
     private var overlayUpdateTimer: Timer?
     private var lastOverlayUpdate: Date?
+    private var rendererLogCount = 0
 
     // MARK: - Lifecycle
 
@@ -62,6 +64,19 @@ class MapViewController: UIViewController {
         // Load street sweeping data
         loadStreetSweepingData()
 
+        #if DEBUG
+        // Debug: add a test polyline to verify MapKit renders overlays at all
+        let testCoords = [
+            CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
+            CLLocationCoordinate2D(latitude: 37.7849, longitude: -122.4094)
+        ]
+        let testPoly = MKPolyline(coordinates: testCoords, count: 2)
+        testPoly.title = "__debug_test__"
+        testPoly.subtitle = "red"
+        mapView.addOverlay(testPoly, level: .aboveLabels)
+        print("[EasyStreet] DEBUG: added test polyline")
+        #endif
+
         // Check if we have a previously parked car
         checkForParkedCar()
 
@@ -72,12 +87,39 @@ class MapViewController: UIViewController {
             name: .parkedCarStatusDidChange,
             object: nil
         )
+
+        // Add info button to navigation bar
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "info.circle"),
+            style: .plain, target: self, action: #selector(infoTapped)
+        )
+
+        // Show disclaimer on first launch
+        if !DisclaimerManager.hasSeenDisclaimer {
+            showDisclaimer(isFirstLaunch: true)
+        }
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
 
         // Update map overlay colors based on current time
+        updateMapOverlays()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        if displayedSegmentIDs.isEmpty {
+            #if DEBUG
+            print("[EasyStreet] viewDidAppear: no overlays, forcing refresh")
+            #endif
+            updateMapOverlays()
+        }
+    }
+
+    /// Public refresh entry point for SceneDelegate and other external callers.
+    /// Refreshes map overlay colors based on the current time.
+    func refreshMapDisplay() {
         updateMapOverlays()
     }
 
@@ -115,6 +157,19 @@ class MapViewController: UIViewController {
 
         // Start in not-parked state
         parkingCard.configure(for: .notParked)
+
+        // Attribution label (Task 7)
+        let attributionLabel = UILabel()
+        attributionLabel.text = DisclaimerManager.attributionText
+        attributionLabel.font = UIFont.systemFont(ofSize: 9)
+        attributionLabel.textColor = .secondaryLabel
+        attributionLabel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(attributionLabel)
+
+        NSLayoutConstraint.activate([
+            attributionLabel.bottomAnchor.constraint(equalTo: mapView.bottomAnchor, constant: -4),
+            attributionLabel.centerXAnchor.constraint(equalTo: mapView.centerXAnchor)
+        ])
     }
 
     private func setupMapView() {
@@ -211,7 +266,13 @@ class MapViewController: UIViewController {
     // MARK: - Data Loading
 
     private func loadStreetSweepingData() {
+        #if DEBUG
+        print("[EasyStreet] loadStreetSweepingData: starting")
+        #endif
         streetRepo.loadData { [weak self] success in
+            #if DEBUG
+            print("[EasyStreet] loadStreetSweepingData: completion, success=\(success)")
+            #endif
             guard let self = self, success else { return }
 
             // Add street segment overlays
@@ -226,9 +287,15 @@ class MapViewController: UIViewController {
 
     private func updateMapOverlays() {
         let span = mapView.region.span
+        #if DEBUG
+        print("[EasyStreet] updateMapOverlays: span=\(span.latitudeDelta)")
+        #endif
 
         // Don't render overlays when zoomed out too far (prevents 21K+ overlays)
         guard span.latitudeDelta < 0.05 else {
+            #if DEBUG
+            print("[EasyStreet] updateMapOverlays: SKIPPED, zoomed out (span=\(span.latitudeDelta))")
+            #endif
             let polylines = mapView.overlays.filter { $0 is MKPolyline }
             if !polylines.isEmpty {
                 mapView.removeOverlays(polylines)
@@ -241,15 +308,19 @@ class MapViewController: UIViewController {
         let visibleSegments = streetRepo.segments(in: visibleRect)
         let visibleIDs = Set(visibleSegments.map { $0.id })
 
-        // Rebuild color cache for visible segments
-        colorCache.removeAll(keepingCapacity: true)
+        // Day-based color cache invalidation: only clear when the calendar day changes
         let today = Date()
         let cal = Calendar.current
+        let currentDay = cal.ordinality(of: .day, in: .year, for: today) ?? 0
+        if currentDay != colorCacheDay {
+            colorCache.removeAll(keepingCapacity: true)
+            colorCacheDay = currentDay
+        }
         let upcomingDates: [(offset: Int, date: Date)] = (1...3).compactMap { offset in
             guard let d = cal.date(byAdding: .day, value: offset, to: today) else { return nil }
             return (offset, d)
         }
-        for segment in visibleSegments {
+        for segment in visibleSegments where colorCache[segment.id] == nil {
             colorCache[segment.id] = segment.mapColorStatus(today: today, upcomingDates: upcomingDates)
         }
 
@@ -281,7 +352,19 @@ class MapViewController: UIViewController {
                 }
                 mapView.addOverlay(polyline, level: .aboveLabels)
             }
+
+            #if DEBUG
+            // Log sample polyline details for first 3 new overlays
+            for segment in newSegments.prefix(3) {
+                let pl = segment.polyline
+                print("[EasyStreet] sample overlay: id=\(segment.id), coords=\(segment.coordinates.count), polyline.pointCount=\(pl.pointCount)")
+            }
+            #endif
         }
+
+        #if DEBUG
+        print("[EasyStreet] updateMapOverlays: \(visibleSegments.count) visible, +\(toAdd.count)/-\(toRemove.count), total overlays=\(mapView.overlays.count)")
+        #endif
 
         displayedSegmentIDs = visibleIDs
     }
@@ -529,53 +612,16 @@ class MapViewController: UIViewController {
         let metersPerPixel = mapView.region.span.latitudeDelta * 111_000 / Double(mapView.bounds.height)
         let thresholdMeters = metersPerPixel * 30.0
 
-        var closestPolyline: MKPolyline?
-        var closestDistance = Double.greatestFiniteMagnitude
-
-        for overlay in mapView.overlays {
-            guard let polyline = overlay as? MKPolyline else { continue }
-
-            let pointCount = polyline.pointCount
-            guard pointCount >= 2 else { continue }
-
-            let points = polyline.points()
-
-            for i in 0..<(pointCount - 1) {
-                let a = points[i]
-                let b = points[i + 1]
-                let dist = perpendicularDistance(from: tapMapPoint, toLineFrom: a, to: b)
-                if dist < closestDistance {
-                    closestDistance = dist
-                    closestPolyline = polyline
-                }
-            }
-        }
-
-        // Convert closest distance to meters
-        guard let polyline = closestPolyline, closestDistance < thresholdMeters else { return }
+        guard let polyline = MapHitTesting.findClosestPolyline(
+            tapMapPoint: tapMapPoint,
+            overlays: mapView.overlays,
+            thresholdMeters: thresholdMeters
+        ) else { return }
 
         guard let segmentID = polyline.title,
               let segment = streetRepo.segment(byID: segmentID) else { return }
 
         presentStreetDetail(for: segment)
-    }
-
-    /// Perpendicular distance from a point to a line segment, in meters.
-    private func perpendicularDistance(from point: MKMapPoint, toLineFrom a: MKMapPoint, to b: MKMapPoint) -> Double {
-        let dx = b.x - a.x
-        let dy = b.y - a.y
-        let lengthSq = dx * dx + dy * dy
-
-        guard lengthSq > 0 else {
-            return point.distance(to: a)
-        }
-
-        // Project point onto line, clamping t to [0, 1]
-        var t = ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSq
-        t = max(0, min(1, t))
-
-        let projection = MKMapPoint(x: a.x + t * dx, y: a.y + t * dy)
-        return point.distance(to: projection)
     }
 
     private func presentStreetDetail(for segment: StreetSegment) {
@@ -619,6 +665,26 @@ class MapViewController: UIViewController {
         }
     }
 
+    @objc private func infoTapped() {
+        showDisclaimer(isFirstLaunch: false)
+    }
+
+    private func showDisclaimer(isFirstLaunch: Bool) {
+        let alert = UIAlertController(
+            title: DisclaimerManager.disclaimerTitle,
+            message: DisclaimerManager.disclaimerBody,
+            preferredStyle: .alert
+        )
+        if isFirstLaunch {
+            alert.addAction(UIAlertAction(title: "I Understand", style: .default) { _ in
+                DisclaimerManager.markDisclaimerSeen()
+            })
+        } else {
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+        }
+        present(alert, animated: true)
+    }
+
     private func showAlert(title: String, message: String) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
@@ -632,8 +698,16 @@ extension MapViewController: MKMapViewDelegate {
     func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
         if let polyline = overlay as? MKPolyline {
             let renderer = MKPolylineRenderer(polyline: polyline)
-            renderer.lineWidth = 8
+            renderer.lineWidth = 4
             renderer.alpha = 0.85
+
+            #if DEBUG
+            // Log first few renderer calls
+            if rendererLogCount < 5 {
+                rendererLogCount += 1
+                print("[EasyStreet] rendererFor: title=\(polyline.title ?? "nil"), subtitle=\(polyline.subtitle ?? "nil"), points=\(polyline.pointCount)")
+            }
+            #endif
 
             // Read color from subtitle (set at polyline creation time) — avoids cache timing issues
             switch polyline.subtitle {
@@ -795,7 +869,9 @@ extension MapViewController: CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        #if DEBUG
         print("Location manager error: \(error.localizedDescription)")
+        #endif
     }
 }
 

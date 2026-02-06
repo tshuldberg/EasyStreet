@@ -140,10 +140,12 @@ def main():
             if day_num == 0:
                 continue
 
-            from_hour = int(row['FromHour'].strip())
-            to_hour = int(row['ToHour'].strip())
-            start_time = f"{from_hour:02d}:00"
-            end_time = f"{to_hour:02d}:00"
+            from_hour_val = float(row['FromHour'].strip())
+            to_hour_val = float(row['ToHour'].strip())
+            from_h, from_m = int(from_hour_val), int(round((from_hour_val - int(from_hour_val)) * 60))
+            to_h, to_m = int(to_hour_val), int(round((to_hour_val - int(to_hour_val)) * 60))
+            start_time = f"{from_h:02d}:{from_m:02d}"
+            end_time = f"{to_h:02d}:{to_m:02d}"
 
             week_numbers = weeks_to_week_of_month(
                 row['Week1'], row['Week2'], row['Week3'], row['Week4'], row['Week5']

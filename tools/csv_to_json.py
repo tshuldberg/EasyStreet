@@ -39,10 +39,12 @@ def parse_linestring(wkt):
 
 
 def hour_to_time(hour_val):
-    """Convert integer hour (0-23) to 'HH:MM' string."""
+    """Convert hour value (possibly fractional, e.g. 7.5) to 'HH:MM' string."""
     try:
-        h = int(float(hour_val))
-        return f"{h:02d}:00"
+        fval = float(hour_val)
+        h = int(fval)
+        m = int(round((fval - h) * 60))
+        return f"{h:02d}:{m:02d}"
     except (ValueError, TypeError):
         return "00:00"
 

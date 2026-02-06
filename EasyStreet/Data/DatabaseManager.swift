@@ -23,8 +23,9 @@ class DatabaseManager {
     static let shared = DatabaseManager()
 
     private var db: OpaquePointer?
+    private let dbQueue = DispatchQueue(label: "com.easystreet.databasemanager", qos: .userInitiated)
 
-    private init() {}
+    init() {}
 
     deinit {
         close()
@@ -34,42 +35,82 @@ class DatabaseManager {
 
     /// Opens the bundled easystreet.db in read-only mode.
     func open() throws {
-        // Don't reopen if already open
-        if db != nil {
-            return
-        }
-
-        guard let dbPath = Bundle.main.path(forResource: "easystreet", ofType: "db") else {
-            throw DatabaseError.openFailed(
-                "easystreet.db not found in app bundle. "
-                + "Ensure the database file is included in the Xcode project's Copy Bundle Resources build phase."
-            )
-        }
-
-        var dbPointer: OpaquePointer?
-        let flags = SQLITE_OPEN_READONLY
-        let result = sqlite3_open_v2(dbPath, &dbPointer, flags, nil)
-
-        if result != SQLITE_OK {
-            let message: String
-            if let errorPointer = sqlite3_errmsg(dbPointer) {
-                message = String(cString: errorPointer)
-            } else {
-                message = "Unknown error (code \(result))"
+        try dbQueue.sync {
+            // Don't reopen if already open
+            if db != nil {
+                #if DEBUG
+                print("[EasyStreet] DatabaseManager: already open")
+                #endif
+                return
             }
-            // Clean up on failure
-            sqlite3_close(dbPointer)
-            throw DatabaseError.openFailed(message)
-        }
 
-        db = dbPointer
+            guard let dbPath = Bundle.main.path(forResource: "easystreet", ofType: "db") else {
+                #if DEBUG
+                print("[EasyStreet] DatabaseManager: easystreet.db NOT FOUND in bundle")
+                #endif
+                throw DatabaseError.openFailed(
+                    "easystreet.db not found in app bundle. "
+                    + "Ensure the database file is included in the Xcode project's Copy Bundle Resources build phase."
+                )
+            }
+            #if DEBUG
+            print("[EasyStreet] DatabaseManager: opening database at \(dbPath)")
+            #endif
+
+            var dbPointer: OpaquePointer?
+            let flags = SQLITE_OPEN_READONLY
+            let result = sqlite3_open_v2(dbPath, &dbPointer, flags, nil)
+
+            if result != SQLITE_OK {
+                let message: String
+                if let errorPointer = sqlite3_errmsg(dbPointer) {
+                    message = String(cString: errorPointer)
+                } else {
+                    message = "Unknown error (code \(result))"
+                }
+                // Clean up on failure
+                sqlite3_close(dbPointer)
+                throw DatabaseError.openFailed(message)
+            }
+
+            db = dbPointer
+        }
+    }
+
+    /// Opens a database at the given file-system path (for testing).
+    /// Uses READWRITE | CREATE flags so in-memory databases work.
+    func open(at path: String) throws {
+        try dbQueue.sync {
+            if db != nil {
+                return
+            }
+
+            var dbPointer: OpaquePointer?
+            let flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE
+            let result = sqlite3_open_v2(path, &dbPointer, flags, nil)
+
+            if result != SQLITE_OK {
+                let message: String
+                if let errorPointer = sqlite3_errmsg(dbPointer) {
+                    message = String(cString: errorPointer)
+                } else {
+                    message = "Unknown error (code \(result))"
+                }
+                sqlite3_close(dbPointer)
+                throw DatabaseError.openFailed(message)
+            }
+
+            db = dbPointer
+        }
     }
 
     /// Closes the database connection if open.
     func close() {
-        if let db = db {
-            sqlite3_close(db)
-            self.db = nil
+        dbQueue.sync {
+            if let db = db {
+                sqlite3_close(db)
+                self.db = nil
+            }
         }
     }
 
@@ -87,62 +128,78 @@ class DatabaseManager {
     ///   - rowHandler: A closure invoked for each result row with the statement pointer.
     /// - Throws: `DatabaseError.queryFailed` if preparation or execution fails.
     func query(_ sql: String, parameters: [Any] = [], rowHandler: (OpaquePointer) -> Void) throws {
-        guard let db = db else {
-            throw DatabaseError.queryFailed("Database is not open. Call open() first.")
-        }
-
-        var stmt: OpaquePointer?
-        let prepareResult = sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
-
-        guard prepareResult == SQLITE_OK, let statement = stmt else {
-            let message: String
-            if let errorPointer = sqlite3_errmsg(db) {
-                message = String(cString: errorPointer)
-            } else {
-                message = "Unknown error (code \(prepareResult))"
-            }
-            sqlite3_finalize(stmt)
-            throw DatabaseError.queryFailed("Failed to prepare statement: \(message)")
-        }
-
-        defer {
-            sqlite3_finalize(statement)
-        }
-
-        // Bind parameters
-        for (index, param) in parameters.enumerated() {
-            let bindIndex = Int32(index + 1) // SQLite parameters are 1-indexed
-
-            var bindResult: Int32
-            if let stringValue = param as? String {
-                let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-                bindResult = sqlite3_bind_text(statement, bindIndex, (stringValue as NSString).utf8String, -1, SQLITE_TRANSIENT)
-            } else if let intValue = param as? Int {
-                bindResult = sqlite3_bind_int64(statement, bindIndex, Int64(intValue))
-            } else if let doubleValue = param as? Double {
-                bindResult = sqlite3_bind_double(statement, bindIndex, doubleValue)
-            } else {
-                throw DatabaseError.queryFailed(
-                    "Unsupported parameter type at index \(index). "
-                    + "Only String, Int, and Double are supported."
-                )
+        try dbQueue.sync {
+            guard let db = db else {
+                throw DatabaseError.queryFailed("Database is not open. Call open() first.")
             }
 
-            if bindResult != SQLITE_OK {
+            var stmt: OpaquePointer?
+            let prepareResult = sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+
+            guard prepareResult == SQLITE_OK, let statement = stmt else {
                 let message: String
                 if let errorPointer = sqlite3_errmsg(db) {
                     message = String(cString: errorPointer)
                 } else {
-                    message = "Unknown error (code \(bindResult))"
+                    message = "Unknown error (code \(prepareResult))"
                 }
-                throw DatabaseError.queryFailed("Failed to bind parameter at index \(index): \(message)")
+                sqlite3_finalize(stmt)
+                throw DatabaseError.queryFailed("Failed to prepare statement: \(message)")
+            }
+
+            defer {
+                sqlite3_finalize(statement)
+            }
+
+            // Bind parameters
+            for (index, param) in parameters.enumerated() {
+                let bindIndex = Int32(index + 1) // SQLite parameters are 1-indexed
+
+                var bindResult: Int32
+                if let stringValue = param as? String {
+                    let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+                    bindResult = sqlite3_bind_text(statement, bindIndex, (stringValue as NSString).utf8String, -1, SQLITE_TRANSIENT)
+                } else if let intValue = param as? Int {
+                    bindResult = sqlite3_bind_int64(statement, bindIndex, Int64(intValue))
+                } else if let doubleValue = param as? Double {
+                    bindResult = sqlite3_bind_double(statement, bindIndex, doubleValue)
+                } else {
+                    throw DatabaseError.queryFailed(
+                        "Unsupported parameter type at index \(index). "
+                        + "Only String, Int, and Double are supported."
+                    )
+                }
+
+                if bindResult != SQLITE_OK {
+                    let message: String
+                    if let errorPointer = sqlite3_errmsg(db) {
+                        message = String(cString: errorPointer)
+                    } else {
+                        message = "Unknown error (code \(bindResult))"
+                    }
+                    throw DatabaseError.queryFailed("Failed to bind parameter at index \(index): \(message)")
+                }
+            }
+
+            // Step through results
+            while sqlite3_step(statement) == SQLITE_ROW {
+                rowHandler(statement)
             }
         }
+    }
 
-        // Step through results
-        while sqlite3_step(statement) == SQLITE_ROW {
-            rowHandler(statement)
+    // MARK: - Metadata
+
+    /// Retrieve a value from the metadata table.
+    /// Note: This method acquires dbQueue internally, so it must NOT be called
+    /// from within an existing dbQueue.sync block.
+    func metadataValue(for key: String) -> String? {
+        guard db != nil else { return nil }
+        var result: String?
+        try? query("SELECT value FROM metadata WHERE key = ?", parameters: [key]) { stmt in
+            result = DatabaseManager.string(from: stmt, column: 0)
         }
+        return result
     }
 
     // MARK: - Column Accessors

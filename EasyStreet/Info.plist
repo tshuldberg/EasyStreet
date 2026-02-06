@@ -43,7 +43,7 @@
     <string>LaunchScreen</string>
     <key>UIRequiredDeviceCapabilities</key>
     <array>
-        <string>armv7</string>
+        <string>arm64</string>
     </array>
     <key>UISupportedInterfaceOrientations</key>
     <array>
@@ -51,11 +51,5 @@
     </array>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>EasyStreet needs your location to show you nearby street sweeping schedules and to remember where you parked your car.</string>
-    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>EasyStreet needs your location to show you nearby street sweeping schedules and to remember where you parked your car.</string>
-    <key>NSLocationAlwaysUsageDescription</key>
-    <string>EasyStreet needs your location to show you nearby street sweeping schedules and to remember where you parked your car.</string>
-    <key>NSUserNotificationsUsageDescription</key>
-    <string>EasyStreet will send you alerts when street sweeping is scheduled where you parked your car.</string>
 </dict>
 </plist> 

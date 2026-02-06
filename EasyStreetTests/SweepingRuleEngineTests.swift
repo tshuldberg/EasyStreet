@@ -230,6 +230,135 @@ class SweepingRuleEngineTests: XCTestCase {
                         "Engine should identify March 15 as a non-holiday")
     }
 
+
+    // MARK: - Edge Case Tests (Task 19)
+
+    /// weeksOfMonth with value 0 should never match any real week
+    func testWeeksOfMonthWithZero() {
+        let rule = SweepingRule(dayOfWeek: 2, startTime: "09:00", endTime: "11:00",
+                                weeksOfMonth: [0], applyOnHolidays: true)
+        // Test all Mondays in March 2026
+        for day in [2, 9, 16, 23, 30] {
+            let date = makeDate(2026, 3, day)
+            XCTAssertFalse(rule.appliesTo(date: date),
+                           "weeksOfMonth [0] should never match (weekOfMonth is 1-based)")
+        }
+    }
+
+    /// weeksOfMonth with value 5 matches the rare 5th occurrence of a weekday
+    func testWeeksOfMonthWithFive() {
+        let rule = SweepingRule(dayOfWeek: 2, startTime: "09:00", endTime: "11:00",
+                                weeksOfMonth: [5], applyOnHolidays: true)
+        let march30 = makeDate(2026, 3, 30) // 5th Monday of March 2026
+        let march2 = makeDate(2026, 3, 2)   // 1st Monday
+        XCTAssertTrue(rule.appliesTo(date: march30),
+                       "weeksOfMonth [5] should match March 30 (5th Monday)")
+        XCTAssertFalse(rule.appliesTo(date: march2),
+                        "weeksOfMonth [5] should NOT match March 2 (1st Monday)")
+    }
+
+    /// weeksOfMonth with value 6 should never match (no month has week 6)
+    func testWeeksOfMonthWithSix() {
+        let rule = SweepingRule(dayOfWeek: 2, startTime: "09:00", endTime: "11:00",
+                                weeksOfMonth: [6], applyOnHolidays: true)
+        for day in [2, 9, 16, 23, 30] {
+            let date = makeDate(2026, 3, day)
+            XCTAssertFalse(rule.appliesTo(date: date),
+                           "weeksOfMonth [6] should never match any Monday")
+        }
+    }
+
+    /// dayOfWeek 0 should not match any real weekday (Sunday=1)
+    func testDayOfWeekZero() {
+        let rule = SweepingRule(dayOfWeek: 0, startTime: "09:00", endTime: "11:00",
+                                weeksOfMonth: [], applyOnHolidays: true)
+        // Test each day of the week in March 2026 (Mon=2 through Sun=8)
+        for day in 2...8 {
+            let date = makeDate(2026, 3, day)
+            XCTAssertFalse(rule.appliesTo(date: date),
+                           "dayOfWeek 0 should not match any real day")
+        }
+    }
+
+    /// dayOfWeek 8 should not match any real weekday (max is 7=Saturday)
+    func testDayOfWeekEight() {
+        let rule = SweepingRule(dayOfWeek: 8, startTime: "09:00", endTime: "11:00",
+                                weeksOfMonth: [], applyOnHolidays: true)
+        for day in 2...8 {
+            let date = makeDate(2026, 3, day)
+            XCTAssertFalse(rule.appliesTo(date: date),
+                           "dayOfWeek 8 should not match any real day")
+        }
+    }
+
+    /// Malformed startTime "25:00" should still produce a formatted time range (fallback)
+    func testMalformedStartTime() {
+        let rule = SweepingRule(dayOfWeek: 2, startTime: "25:00", endTime: "26:00",
+                                weeksOfMonth: [], applyOnHolidays: false)
+        let formatted = rule.formattedTimeRange
+        // Should fall back to raw string format since DateFormatter won't parse "25:00"
+        XCTAssertTrue(formatted.contains("25:00"),
+                       "Malformed time should fall back to raw string, got: \(formatted)")
+    }
+
+    /// Empty time strings should produce a formatted time range (fallback)
+    func testEmptyTimeStrings() {
+        let rule = SweepingRule(dayOfWeek: 2, startTime: "", endTime: "",
+                                weeksOfMonth: [], applyOnHolidays: false)
+        let formatted = rule.formattedTimeRange
+        // Should fall back to raw format: " - " (empty strings)
+        XCTAssertEqual(formatted, " - ",
+                       "Empty time strings should produce fallback format, got: \(formatted)")
+    }
+
+    /// nextSweeping with malformed startTime should skip that rule gracefully
+    func testNextSweepingMalformedTime() {
+        let rule = SweepingRule(dayOfWeek: 2, startTime: "bad", endTime: "worse",
+                                weeksOfMonth: [], applyOnHolidays: true)
+        let segment = StreetSegment(id: "edge-1", streetName: "Edge St",
+                                     coordinates: [[37.78, -122.41]], rules: [rule])
+        let refDate = makeDate(2026, 3, 1) // Sunday
+        let (nextDate, _) = segment.nextSweeping(from: refDate)
+        // With malformed time, the date setting should fail and the loop continues
+        // The behavior depends on Int parsing of "bad" -> 0, so it may still produce a date
+        // This test documents the current behavior
+        if let d = nextDate {
+            let weekday = Calendar.current.component(.weekday, from: d)
+            XCTAssertEqual(weekday, 2, "If a date is returned, it should still be a Monday")
+        }
+        // No crash is the key assertion - reaching this point means no crash
+    }
+
+    /// nextSweeping with empty rules should return (nil, nil)
+    func testNextSweepingNoRules() {
+        let segment = StreetSegment(id: "edge-2", streetName: "Edge St",
+                                     coordinates: [[37.78, -122.41]], rules: [])
+        let (nextDate, nextRule) = segment.nextSweeping()
+        XCTAssertNil(nextDate, "Segment with no rules should return nil date")
+        XCTAssertNil(nextRule, "Segment with no rules should return nil rule")
+    }
+
+    /// weeksDescription with week value 5 should produce "5th"
+    func testWeeksDescriptionWeekFive() {
+        let rule = SweepingRule(dayOfWeek: 2, startTime: "09:00", endTime: "11:00",
+                                weeksOfMonth: [5], applyOnHolidays: false)
+        XCTAssertTrue(rule.weeksDescription.contains("5th"),
+                       "Week 5 should produce '5th' in description, got: \(rule.weeksDescription)")
+    }
+
+    /// weeksDescription with week value 6 (out of range) should not crash after Task 13-F2b fix
+    func testWeeksDescriptionWeekSix() {
+        let rule = SweepingRule(dayOfWeek: 2, startTime: "09:00", endTime: "11:00",
+                                weeksOfMonth: [6], applyOnHolidays: false)
+        // After the guard fix, this should not crash - the invalid week is filtered out
+        let desc = rule.weeksDescription
+        XCTAssertFalse(desc.isEmpty,
+                        "Description should not be empty (still has suffix), got: \(desc)")
+        // Value 6 is filtered out by compactMap, so only the suffix remains
+        XCTAssertTrue(desc.contains("weeks of the month") || desc.contains("week"),
+                       "Should still have suffix text, got: \(desc)")
+    }
+
     // MARK: - Helpers
 
     private func makeDate(_ year: Int, _ month: Int, _ day: Int) -> Date {

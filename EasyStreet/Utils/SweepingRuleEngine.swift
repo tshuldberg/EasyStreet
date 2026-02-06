@@ -44,10 +44,13 @@ class SweepingRuleEngine {
                 }
                 
                 // Set time components only (keep today's date)
-                let sweepingDateTime = calendar.date(bySettingHour: calendar.component(.hour, from: startTime),
-                                                     minute: calendar.component(.minute, from: startTime),
-                                                     second: 0,
-                                                     of: today)!
+                guard let sweepingDateTime = calendar.date(bySettingHour: calendar.component(.hour, from: startTime),
+                                                           minute: calendar.component(.minute, from: startTime),
+                                                           second: 0,
+                                                           of: today) else {
+                    completion(.unknown)
+                    return
+                }
                 
                 // Check if we're past today's sweeping
                 if sweepingDateTime < today {
@@ -81,6 +84,52 @@ class SweepingRuleEngine {
         }
     }
     
+    /// Testable method: determine sweeping status for a segment at a given time.
+    func determineStatus(for segment: StreetSegment?, at now: Date) -> SweepingStatus {
+        guard let segment = segment else { return .noData }
+
+        let calendar = Calendar.current
+        let weekday = calendar.component(.weekday, from: now)
+
+        // Check if sweeping is today
+        if let todayRule = segment.rules.first(where: { rule in
+            rule.dayOfWeek == weekday && rule.appliesTo(date: now)
+        }) {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm"
+
+            guard let startTime = formatter.date(from: todayRule.startTime) else {
+                return .unknown
+            }
+
+            guard let sweepingDateTime = calendar.date(
+                bySettingHour: calendar.component(.hour, from: startTime),
+                minute: calendar.component(.minute, from: startTime),
+                second: 0, of: now
+            ) else {
+                return .unknown
+            }
+
+            if sweepingDateTime < now {
+                return .safe
+            } else {
+                let hoursRemaining = sweepingDateTime.timeIntervalSince(now) / 3600
+                if hoursRemaining < 1 {
+                    return .imminent(time: sweepingDateTime, streetName: segment.streetName)
+                } else {
+                    return .today(time: sweepingDateTime, streetName: segment.streetName)
+                }
+            }
+        } else {
+            let (nextDate, _) = segment.nextSweeping(from: now)
+            if let nextDate = nextDate {
+                return .upcoming(time: nextDate, streetName: segment.streetName)
+            } else {
+                return .safe
+            }
+        }
+    }
+
     /// Check if a given date is a holiday in San Francisco
     /// - Parameter date: The date to check
     /// - Returns: Boolean indicating if it's a holiday

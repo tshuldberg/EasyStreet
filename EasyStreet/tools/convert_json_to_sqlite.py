@@ -14,10 +14,11 @@ The input JSON is an array of street segment objects, each with:
     - coordinates: array of [lat, lng] pairs
     - rules: array of sweeping rule objects
 
-The output database has two tables:
+The output database has three tables:
     - street_segments (id, street_name, coordinates, lat_min/max, lng_min/max)
     - sweeping_rules (id, segment_id, day_of_week, start_time, end_time,
                       weeks_of_month, apply_on_holidays)
+    - metadata (key, value) -- data version tracking
 """
 
 import json
@@ -25,6 +26,7 @@ import sqlite3
 import sys
 import os
 import time
+import datetime
 
 
 SCHEMA_SQL = """
@@ -53,6 +55,11 @@ CREATE INDEX IF NOT EXISTS idx_segments_bbox
 
 CREATE INDEX IF NOT EXISTS idx_rules_segment
     ON sweeping_rules(segment_id);
+
+CREATE TABLE IF NOT EXISTS metadata (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
 
 
@@ -139,6 +146,18 @@ def convert(input_path, output_path):
             print(f"  Processed {segment_count} segments ({rule_count} rules so far)...")
 
     conn.execute("COMMIT")
+
+    # Insert metadata
+    csv_source = os.path.basename(input_path).replace(".json", ".csv")
+    conn.execute("INSERT INTO metadata (key, value) VALUES (?, ?)",
+                 ("csv_source", csv_source))
+    conn.execute("INSERT INTO metadata (key, value) VALUES (?, ?)",
+                 ("build_date", datetime.datetime.utcnow().isoformat() + "Z"))
+    conn.execute("INSERT INTO metadata (key, value) VALUES (?, ?)",
+                 ("segment_count", str(segment_count)))
+    conn.execute("INSERT INTO metadata (key, value) VALUES (?, ?)",
+                 ("schema_version", "2"))
+    conn.commit()
 
     # Optimize the database
     conn.execute("ANALYZE")

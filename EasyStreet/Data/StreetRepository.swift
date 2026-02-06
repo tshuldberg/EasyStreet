@@ -9,6 +9,9 @@ class StreetRepository {
 
     private let dataManager = StreetSweepingDataManager.shared
     private var useSQLite = false
+    private(set) var dataSourceInfo: String?
+    private(set) var dataBuildDate: String?
+    private var coordinateCache: [String: [[Double]]] = [:]
 
     private init() {}
 
@@ -18,11 +21,21 @@ class StreetRepository {
         do {
             try DatabaseManager.shared.open()
             useSQLite = true
-            print("StreetRepository: using SQLite backing store")
+            var count = 0
+            try? DatabaseManager.shared.query("SELECT COUNT(*) FROM street_segments") { stmt in
+                count = DatabaseManager.int(from: stmt, column: 0)
+            }
+            #if DEBUG
+            print("[EasyStreet] StreetRepository: using SQLite backing store (\(count) segments)")
+            #endif
+            dataSourceInfo = DatabaseManager.shared.metadataValue(for: "csv_source")
+            dataBuildDate = DatabaseManager.shared.metadataValue(for: "build_date")
             DispatchQueue.main.async { completion(true) }
         } catch {
             // Fall back to JSON in-memory data manager
-            print("StreetRepository: SQLite unavailable (\(error.localizedDescription)), falling back to JSON")
+            #if DEBUG
+            print("[EasyStreet] StreetRepository: SQLite unavailable (\(error.localizedDescription)), falling back to JSON")
+            #endif
             useSQLite = false
             dataManager.loadData(completion: completion)
         }
@@ -42,6 +55,10 @@ class StreetRepository {
         let minLon = min(topLeft.longitude, bottomRight.longitude)
         let maxLon = max(topLeft.longitude, bottomRight.longitude)
 
+        #if DEBUG
+        print("[EasyStreet] segments(in:) bbox: lat[\(minLat)...\(maxLat)], lon[\(minLon)...\(maxLon)]")
+        #endif
+
         let sql = """
             SELECT s.id, s.street_name, s.coordinates,
                    r.day_of_week, r.start_time, r.end_time, r.weeks_of_month, r.apply_on_holidays
@@ -60,7 +77,8 @@ class StreetRepository {
                 let coordsJSON = DatabaseManager.string(from: stmt, column: 2)
 
                 if segmentMap[id] == nil {
-                    let coordinates = parseCoordinatesJSON(coordsJSON)
+                    let coordinates = coordinateCache[id] ?? parseCoordinatesJSON(coordsJSON)
+                    if coordinateCache[id] == nil { coordinateCache[id] = coordinates }
                     segmentMap[id] = (id: id, streetName: streetName, coordinates: coordinates, rules: [])
                 }
 
@@ -84,9 +102,20 @@ class StreetRepository {
                 }
             }
         } catch {
-            print("StreetRepository: SQLite query failed: \(error)")
+            #if DEBUG
+            print("[EasyStreet] StreetRepository: SQLite query failed: \(error)")
+            #endif
             return []
         }
+
+        #if DEBUG
+        print("[EasyStreet] segments(in:) returned \(segmentMap.count) segments")
+
+        // Log sample coordinate details for first 3 segments
+        for entry in segmentMap.values.prefix(3) {
+            print("[EasyStreet]   sample: id=\(entry.id), coords=\(entry.coordinates.count), rules=\(entry.rules.count)")
+        }
+        #endif
 
         return segmentMap.values.map { entry in
             StreetSegment(id: entry.id, streetName: entry.streetName,
@@ -143,7 +172,9 @@ class StreetRepository {
                 }
             }
         } catch {
+            #if DEBUG
             print("StreetRepository: findSegment SQLite query failed: \(error)")
+            #endif
             return nil
         }
 
@@ -211,7 +242,9 @@ class StreetRepository {
                 }
             }
         } catch {
+            #if DEBUG
             print("StreetRepository: segment(byID:) SQLite query failed: \(error)")
+            #endif
             return nil
         }
 
@@ -225,7 +258,7 @@ class StreetRepository {
 
     // MARK: - Private Helpers
 
-    private func parseCoordinatesJSON(_ json: String) -> [[Double]] {
+    func parseCoordinatesJSON(_ json: String) -> [[Double]] {
         guard let data = json.data(using: .utf8),
               let coords = try? JSONSerialization.jsonObject(with: data) as? [[Double]] else {
             return []
@@ -233,7 +266,7 @@ class StreetRepository {
         return coords
     }
 
-    private func parseWeeksJSON(_ json: String) -> [Int] {
+    func parseWeeksJSON(_ json: String) -> [Int] {
         guard let data = json.data(using: .utf8),
               let weeks = try? JSONSerialization.jsonObject(with: data) as? [Int] else {
             return []

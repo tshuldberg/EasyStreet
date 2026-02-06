@@ -27,7 +27,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Refresh map display when returning to the app
         if let mapVC = window?.rootViewController as? UINavigationController,
            let mainVC = mapVC.viewControllers.first as? MapViewController {
-            mainVC.viewWillAppear(true) // Force refresh
+            mainVC.refreshMapDisplay()
         }
     }
     

@@ -9,8 +9,9 @@ class ParkedCarManager {
 
     // Notification identifier constants
     private struct NotificationIDs {
-        static let sweepingReminder = "sweepingReminder"
+        static let sweepingReminderPrefix = "sweepingReminder_"
     }
+    private var scheduledNotificationIDs: [String] = []
 
     // UserDefaults keys
     private struct UserDefaultsKeys {
@@ -21,19 +22,28 @@ class ParkedCarManager {
         static let notificationLeadMinutes = "notificationLeadMinutes"
     }
 
-    private init() {}
+    private let defaults: UserDefaults
+
+    private init() {
+        self.defaults = .standard
+    }
+
+    /// Injectable initializer for testing
+    init(defaults: UserDefaults) {
+        self.defaults = defaults
+    }
 
     // MARK: - Properties
 
     /// Check if a car is currently parked
     var isCarParked: Bool {
-        return UserDefaults.standard.object(forKey: UserDefaultsKeys.parkedLatitude) != nil
+        return defaults.object(forKey: UserDefaultsKeys.parkedLatitude) != nil
     }
 
     /// Get the parked car location
     var parkedLocation: CLLocationCoordinate2D? {
-        guard let lat = UserDefaults.standard.object(forKey: UserDefaultsKeys.parkedLatitude) as? Double,
-              let lon = UserDefaults.standard.object(forKey: UserDefaultsKeys.parkedLongitude) as? Double else {
+        guard let lat = defaults.object(forKey: UserDefaultsKeys.parkedLatitude) as? Double,
+              let lon = defaults.object(forKey: UserDefaultsKeys.parkedLongitude) as? Double else {
             return nil
         }
         return CLLocationCoordinate2D(latitude: lat, longitude: lon)
@@ -41,7 +51,7 @@ class ParkedCarManager {
 
     /// Get the time the car was parked
     var parkedTime: Date? {
-        guard let timestamp = UserDefaults.standard.object(forKey: UserDefaultsKeys.parkedTimestamp) as? Double else {
+        guard let timestamp = defaults.object(forKey: UserDefaultsKeys.parkedTimestamp) as? Double else {
             return nil
         }
 
@@ -50,17 +60,17 @@ class ParkedCarManager {
 
     /// Get street name where car is parked
     var parkedStreetName: String? {
-        return UserDefaults.standard.string(forKey: UserDefaultsKeys.parkedStreetName)
+        return defaults.string(forKey: UserDefaultsKeys.parkedStreetName)
     }
 
     /// Notification lead time in minutes (default: 60)
     var notificationLeadMinutes: Int {
         get {
-            let stored = UserDefaults.standard.integer(forKey: UserDefaultsKeys.notificationLeadMinutes)
+            let stored = defaults.integer(forKey: UserDefaultsKeys.notificationLeadMinutes)
             return stored > 0 ? stored : 60
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: UserDefaultsKeys.notificationLeadMinutes)
+            defaults.set(newValue, forKey: UserDefaultsKeys.notificationLeadMinutes)
         }
     }
 
@@ -70,12 +80,12 @@ class ParkedCarManager {
     ///   - streetName: The name of the street (optional)
     func parkCar(at location: CLLocationCoordinate2D, streetName: String? = nil) {
         // Save to UserDefaults
-        UserDefaults.standard.set(location.latitude, forKey: UserDefaultsKeys.parkedLatitude)
-        UserDefaults.standard.set(location.longitude, forKey: UserDefaultsKeys.parkedLongitude)
-        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: UserDefaultsKeys.parkedTimestamp)
+        defaults.set(location.latitude, forKey: UserDefaultsKeys.parkedLatitude)
+        defaults.set(location.longitude, forKey: UserDefaultsKeys.parkedLongitude)
+        defaults.set(Date().timeIntervalSince1970, forKey: UserDefaultsKeys.parkedTimestamp)
 
         if let streetName = streetName {
-            UserDefaults.standard.set(streetName, forKey: UserDefaultsKeys.parkedStreetName)
+            defaults.set(streetName, forKey: UserDefaultsKeys.parkedStreetName)
         }
 
         // Notify observers that parked car status has changed
@@ -86,8 +96,8 @@ class ParkedCarManager {
     func updateParkedLocation(to newLocation: CLLocationCoordinate2D) {
         guard isCarParked else { return }
 
-        UserDefaults.standard.set(newLocation.latitude, forKey: UserDefaultsKeys.parkedLatitude)
-        UserDefaults.standard.set(newLocation.longitude, forKey: UserDefaultsKeys.parkedLongitude)
+        defaults.set(newLocation.latitude, forKey: UserDefaultsKeys.parkedLatitude)
+        defaults.set(newLocation.longitude, forKey: UserDefaultsKeys.parkedLongitude)
 
         // Notify observers that parked car status has changed
         NotificationCenter.default.post(name: .parkedCarStatusDidChange, object: nil)
@@ -96,15 +106,16 @@ class ParkedCarManager {
     /// Clear parked car data and cancel notifications
     func clearParkedCar() {
         // Remove from UserDefaults
-        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.parkedLatitude)
-        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.parkedLongitude)
-        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.parkedTimestamp)
-        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.parkedStreetName)
+        defaults.removeObject(forKey: UserDefaultsKeys.parkedLatitude)
+        defaults.removeObject(forKey: UserDefaultsKeys.parkedLongitude)
+        defaults.removeObject(forKey: UserDefaultsKeys.parkedTimestamp)
+        defaults.removeObject(forKey: UserDefaultsKeys.parkedStreetName)
 
         // Cancel any scheduled notifications
         UNUserNotificationCenter.current().removePendingNotificationRequests(
-            withIdentifiers: [NotificationIDs.sweepingReminder]
+            withIdentifiers: scheduledNotificationIDs
         )
+        scheduledNotificationIDs.removeAll()
 
         // Notify observers that parked car status has changed
         NotificationCenter.default.post(name: .parkedCarStatusDidChange, object: nil)
@@ -118,7 +129,9 @@ class ParkedCarManager {
         // Request notification permission if not already granted
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
             guard granted else {
+                #if DEBUG
                 print("Notification permission denied or error: \(String(describing: error))")
+                #endif
                 return
             }
 
@@ -134,7 +147,9 @@ class ParkedCarManager {
 
             // Only schedule if notification time is in the future
             guard notificationTime > Date() else {
+                #if DEBUG
                 print("Warning: Attempted to schedule a notification in the past")
+                #endif
                 return
             }
 
@@ -145,9 +160,15 @@ class ParkedCarManager {
             )
             let trigger = UNCalendarNotificationTrigger(dateMatching: triggerDate, repeats: false)
 
-            // Create request
+            // Deduplicate: remove any existing sweeping reminders before scheduling new ones
+            let existingIDs = self.scheduledNotificationIDs.filter { $0.hasPrefix(NotificationIDs.sweepingReminderPrefix) }
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: existingIDs)
+            self.scheduledNotificationIDs.removeAll()
+
+            // Create request with unique ID based on sweeping time
+            let notificationID = "\(NotificationIDs.sweepingReminderPrefix)\(Int(sweepingTime.timeIntervalSince1970))"
             let request = UNNotificationRequest(
-                identifier: NotificationIDs.sweepingReminder,
+                identifier: notificationID,
                 content: content,
                 trigger: trigger
             )
@@ -155,7 +176,11 @@ class ParkedCarManager {
             // Add to notification center
             UNUserNotificationCenter.current().add(request) { error in
                 if let error = error {
+                    #if DEBUG
                     print("Error scheduling notification: \(error)")
+                    #endif
+                } else {
+                    self.scheduledNotificationIDs.append(notificationID)
                 }
             }
         }

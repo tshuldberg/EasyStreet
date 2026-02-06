@@ -33,7 +33,7 @@ class StreetDetailViewController: UIViewController {
         return view
     }()
 
-    private let streetNameLabel: UILabel = {
+    let streetNameLabel: UILabel = {
         let label = UILabel()
         label.font = UIFont.boldSystemFont(ofSize: 20)
         label.numberOfLines = 0
@@ -41,7 +41,7 @@ class StreetDetailViewController: UIViewController {
         return label
     }()
 
-    private let nextSweepingLabel: UILabel = {
+    let nextSweepingLabel: UILabel = {
         let label = UILabel()
         label.font = UIFont.systemFont(ofSize: 15)
         label.numberOfLines = 0
@@ -68,7 +68,7 @@ class StreetDetailViewController: UIViewController {
         return label
     }()
 
-    private let rulesStackView: UIStackView = {
+    let rulesStackView: UIStackView = {
         let stack = UIStackView()
         stack.axis = .vertical
         stack.spacing = 8
@@ -76,7 +76,7 @@ class StreetDetailViewController: UIViewController {
         return stack
     }()
 
-    private let parkHereButton: UIButton = {
+    let parkHereButton: UIButton = {
         let button = UIButton(type: .system)
         button.setTitle("Park Here", for: .normal)
         button.backgroundColor = .systemBlue

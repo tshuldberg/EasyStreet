@@ -37,9 +37,12 @@ struct SweepingRule: Codable {
         if weeksOfMonth.isEmpty {
             return "Every week"
         }
-        
+
         let ordinals = ["1st", "2nd", "3rd", "4th", "5th"]
-        let weekNames = weeksOfMonth.map { ordinals[$0 - 1] }
+        let weekNames = weeksOfMonth.compactMap { week in
+            guard week >= 1, week <= ordinals.count else { return nil }
+            return ordinals[week - 1]
+        }
         return weekNames.joined(separator: " & ") + " weeks of the month"
     }
     
@@ -80,10 +83,25 @@ struct StreetSegment: Codable, Identifiable {
     let coordinates: [[Double]] // Array of [latitude, longitude] pairs
     let rules: [SweepingRule]
     
-    // Computed property to convert coordinates to MKPolyline
+    // Thread-safe cached polyline to avoid re-creating MKPolyline on every access
+    private static var polylineCache: [String: MKPolyline] = [:]
+    private static let polylineCacheLock = NSLock()
+
     var polyline: MKPolyline {
+        StreetSegment.polylineCacheLock.lock()
+        defer { StreetSegment.polylineCacheLock.unlock() }
+        if let cached = StreetSegment.polylineCache[id] { return cached }
         let points = coordinates.map { CLLocationCoordinate2D(latitude: $0[0], longitude: $0[1]) }
-        return MKPolyline(coordinates: points, count: points.count)
+        let pl = MKPolyline(coordinates: points, count: points.count)
+        StreetSegment.polylineCache[id] = pl
+        return pl
+    }
+
+    /// Clear polyline cache (used by tests for isolation)
+    static func clearPolylineCache() {
+        polylineCacheLock.lock()
+        defer { polylineCacheLock.unlock() }
+        polylineCache.removeAll()
     }
     
     // Get the nearest upcoming sweeping for this segment
@@ -202,7 +220,9 @@ class StreetSweepingDataManager {
             guard let self = self else { return }
             
             guard let url = Bundle.main.url(forResource: self.dataFileName, withExtension: nil) else {
+                #if DEBUG
                 print("Error: \(self.dataFileName) not found in bundle.")
+                #endif
                 // Fallback to sample data for UI testing if main file not found
                 #if DEBUG
                 print("Loading SAMPLE data as fallback.")
@@ -221,10 +241,14 @@ class StreetSweepingDataManager {
                 self.allSegments = try JSONDecoder().decode([StreetSegment].self, from: jsonData)
                 self.buildIndexes()
                 self.isLoaded = true
+                #if DEBUG
                 print("Successfully loaded \(self.allSegments.count) segments from \(self.dataFileName)")
+                #endif
                 DispatchQueue.main.async { completion(true) }
             } catch {
+                #if DEBUG
                 print("Error loading or decoding \(self.dataFileName): \(error)")
+                #endif
                 // Fallback to sample data for UI testing if decoding fails
                 #if DEBUG
                 print("Loading SAMPLE data due to error: \(error.localizedDescription)")

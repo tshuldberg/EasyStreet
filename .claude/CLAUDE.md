@@ -450,24 +450,37 @@ If user asks to "update timeline" or "document this session":
 - Google Maps API key needed for Android
 - Never commit API keys to git
 - Use environment variables or gradle.properties (gitignored)
+- **NEVER commit `.claude.json`** — it contains MCP server API keys (e.g. Context7). It is gitignored via `.gitignore`.
+- When adding new MCP servers or secrets to Claude Code config, verify they are covered by `.gitignore` before committing
 
 ---
 
 ## Development Status
 
-**Current Phase:** MVP (Minimum Viable Product)
+**Current Phase:** Production Readiness (post-MVP)
 
-**Implemented:**
+**Implemented (MVP complete):**
 - ✅ Interactive map with color-coded streets
 - ✅ "I Parked Here" feature with GPS capture
 - ✅ Notification scheduling (1-hour advance)
 - ✅ Street sweeping rule evaluation
 - ✅ Manual pin adjustment
+- ✅ SQLite database with 21,809 street segments
+- ✅ Street detail bottom sheet
+- ✅ Parking status card
 
-**Planned (Post-MVP):**
-- Dynamic holiday management
+**Active Plan:** [Production Readiness Plan](docs/plans/2026-02-06-production-readiness.md)
+- 21 tasks across 5 phases (~20 hours)
+- Covers: data accuracy, legal protection, code fixes, test coverage, App Store assets
+- Self-contained: includes full project context, file inventory, code snippets, commit messages
+- Cross-reviewed: 12 conflict findings identified and resolved
+- **To execute:** Open a fresh Claude Code session and say: "Execute the plan at docs/plans/2026-02-06-production-readiness.md"
+
+**Planned (Post-Production-Readiness):**
+- TestFlight beta testing
+- Android Play Store submission
+- Multi-city expansion (see docs/plans/2026-02-06-multi-city-expansion.md)
 - Customizable notification times
-- Enhanced color coding (orange/yellow for tomorrow/today)
 - "Where Can I Park?" safe zone suggestions
 - Real-time data updates from SF open data
 

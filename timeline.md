@@ -130,6 +130,103 @@ The street-tap feature uses point-to-line-segment perpendicular distance:
 
 ---
 
+## 2026-02-05 - Debug & Fix Street Overlay Rendering + Hit-Testing Refactor + Test Coverage
+
+**Session Type**: Bug Fix / Refactor / Testing
+**Duration**: ~30 minutes
+**Participants**: Trey Shuldberg, Claude Code (AI Assistant)
+**Commits**: Pending (not yet committed)
+
+### Objectives
+- Diagnose and fix street overlays not rendering with color-coded overlays on the SF map
+- Verify that tapping a street shows a schedule popup with "Park Here" functionality
+- Extract hit-testing algorithm into testable utility
+- Add comprehensive test coverage for overlay pipeline, hit-testing, and StreetDetailViewController
+
+### Context
+After 4 prior fix attempts (commits `7e57f7c`, `03270e0`, `ea01ded`, `612270e`) addressing color cache timing, overlay z-level, line width, and zoom-based throttling, overlays still don't appear. The data layer is verified working (SQLite DB has 21,809 segments with 36,173 rules, bounding box queries return hundreds of results).
+
+### Technical Details
+
+#### Files Modified
+
+1. **[EasyStreet/Data/DatabaseManager.swift](EasyStreet/EasyStreet/Data/DatabaseManager.swift)** (Lines 36-47)
+   - Added diagnostic logging to `open()`: prints whether DB is already open, not found, or successfully opened with path
+   - Helps identify if the DB file is bundled correctly at runtime
+
+2. **[EasyStreet/Data/StreetRepository.swift](EasyStreet/EasyStreet/Data/StreetRepository.swift)** (Lines 16-29, 45-95)
+   - Added segment count verification after SQLite opens: `SELECT COUNT(*) FROM street_segments`
+   - Added bounding box parameter logging in `segments(in:)`: logs lat/lon range
+   - Added result count logging: prints number of segments returned
+   - Added sample segment details for first 3 results
+
+3. **[EasyStreet/Controllers/MapViewController.swift](EasyStreet/EasyStreet/Controllers/MapViewController.swift)**
+   - Added `rendererLogCount` property for limiting renderer logging (Line 45)
+   - Added `viewDidAppear` override (Lines 97-102): forces overlay refresh if none displayed
+   - Added `#if DEBUG` test polyline in `viewDidLoad` (Lines 65-76): hardcoded red line across SF to verify MapKit rendering independently of data pipeline
+   - Added logging to `loadStreetSweepingData()` (Lines 235-243): start/completion tracking
+   - Added logging to `updateMapOverlays()` (Lines 251-253, 310-318): span, skip reasons, visible/add/remove counts, sample polyline details
+   - Added first-5-calls logging to `rendererFor` delegate (Lines 636-640): title, subtitle, point count
+   - **Refactored** `handleMapTap` (Lines 554-575): replaced inline hit-testing loop and `perpendicularDistance` method with call to `MapHitTesting.findClosestPolyline()`
+
+4. **[EasyStreet/Controllers/StreetDetailViewController.swift](EasyStreet/EasyStreet/Controllers/StreetDetailViewController.swift)** (Lines 36, 44, 71, 79)
+   - Changed access level of `streetNameLabel`, `nextSweepingLabel`, `rulesStackView`, `parkHereButton` from `private` to `internal`
+   - Required for unit testing via `@testable import`
+
+#### Files Created
+
+5. **[EasyStreet/Utils/MapHitTesting.swift](EasyStreet/EasyStreet/Utils/MapHitTesting.swift)** (48 lines)
+   - Extracted `perpendicularDistance(from:toLineFrom:to:)` and `findClosestPolyline(tapMapPoint:overlays:thresholdMeters:)` from MapViewController
+   - Static methods on `MapHitTesting` struct for easy unit testing
+   - Algorithm: point-to-line-segment perpendicular distance with clamped projection
+
+6. **[EasyStreetTests/OverlayPipelineTests.swift](EasyStreetTests/OverlayPipelineTests.swift)** (73 lines)
+   - 7 tests: polyline point counts (0, 1, 2, 4), coordinate accuracy, color status encoding (red/green), no-rules defaults
+
+7. **[EasyStreetTests/HitTestingTests.swift](EasyStreetTests/HitTestingTests.swift)** (110 lines)
+   - 8 tests: point-on-line (zero distance), perpendicular distance (~111m), beyond-segment-end, zero-length segment, closest polyline selection, threshold filtering, empty overlays, non-polyline overlays, single-point polylines
+
+8. **[EasyStreetTests/StreetDetailTests.swift](EasyStreetTests/StreetDetailTests.swift)** (98 lines)
+   - 7 tests: street name display, green status for no rules, red status for today's sweeping, "No sweeping rules" message, rule labels with day names, Park Here delegate with midpoint coordinates, empty-coordinates guard, two-coordinate midpoint calculation
+   - Uses `MockStreetDetailDelegate` to verify delegate callbacks
+
+### Debug Strategy
+
+The diagnostic logging will reveal which scenario is causing the failure:
+- **DB not found**: `"easystreet.db NOT FOUND in bundle"` → fix bundle resources
+- **DB opens but 0 segments**: `"segments(in:) returned 0"` → fix bounding box conversion
+- **Segments returned but 0-point polylines**: `"polyline.pointCount=0"` → fix coordinate parsing
+- **Everything correct but invisible**: renderer called with correct colors → increase line width / check visibility
+- **Completion never fires**: `"starting"` with no `"completion"` → check `[weak self]` lifecycle
+
+The `#if DEBUG` test polyline immediately isolates MapKit rendering vs data pipeline issues.
+
+### Testing & Verification
+- Xcode project regenerated with `xcodegen generate`
+- All new files included in project (verified in project.pbxproj)
+- Note: `xcodebuild` CLI unavailable (active developer directory is CommandLineTools, not Xcode.app); build must be verified in Xcode IDE
+
+### Next Steps
+1. Open project in Xcode, build and run on simulator
+2. Filter console for `[EasyStreet]` to read diagnostic output
+3. If test polyline visible but data overlays not → data pipeline issue
+4. If test polyline also invisible → MapKit delegate/configuration issue
+5. Apply root cause fix based on log output
+6. Remove debug logging and test polyline after fix verified
+7. Run full test suite to verify all 22+ tests pass
+
+### References
+- [DatabaseManager.swift](EasyStreet/EasyStreet/Data/DatabaseManager.swift)
+- [StreetRepository.swift](EasyStreet/EasyStreet/Data/StreetRepository.swift)
+- [MapViewController.swift](EasyStreet/EasyStreet/Controllers/MapViewController.swift)
+- [StreetDetailViewController.swift](EasyStreet/EasyStreet/Controllers/StreetDetailViewController.swift)
+- [MapHitTesting.swift](EasyStreet/EasyStreet/Utils/MapHitTesting.swift)
+- [OverlayPipelineTests.swift](EasyStreetTests/OverlayPipelineTests.swift)
+- [HitTestingTests.swift](EasyStreetTests/HitTestingTests.swift)
+- [StreetDetailTests.swift](EasyStreetTests/StreetDetailTests.swift)
+
+---
+
 ## 2026-02-05 - Fix: Streets Not Color-Coded After SQLite Migration
 
 **Session Type**: Bug Fix

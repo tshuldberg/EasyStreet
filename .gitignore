@@ -36,3 +36,13 @@ gradle.properties
 
 # Claude Code
 .claude/settings.local.json
+.claude.json
+
+# Xcode user data
+EasyStreet/EasyStreet.xcodeproj/xcuserdata/
+xcuserdata/
+
+# SQLite temporary files
+*.db-shm
+*.db-wal
+*.db-journal
