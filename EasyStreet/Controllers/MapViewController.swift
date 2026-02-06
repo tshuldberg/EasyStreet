@@ -72,6 +72,8 @@ class MapViewController: UIViewController {
     private var currentLocation: CLLocationCoordinate2D?
     private var parkedCarAnnotation: MKPointAnnotation?
     private var isAdjustingPin = false
+    private var displayedSegmentIDs: Set<String> = []
+    private var overlayUpdateTimer: Timer?
     
     // MARK: - Lifecycle
     
@@ -285,10 +287,46 @@ class MapViewController: UIViewController {
     }
     
     private func updateMapOverlays() {
-        // This would refresh the colors of existing overlays
-        // For MVP, we'll just remove and re-add them
-        mapView.removeOverlays(mapView.overlays)
-        addStreetSegmentOverlays()
+        let span = mapView.region.span
+
+        // Don't render overlays when zoomed out too far (prevents 21K+ overlays)
+        guard span.latitudeDelta < 0.05 else {
+            let polylines = mapView.overlays.filter { $0 is MKPolyline }
+            if !polylines.isEmpty {
+                mapView.removeOverlays(polylines)
+            }
+            displayedSegmentIDs.removeAll()
+            return
+        }
+
+        let visibleRect = mapView.visibleMapRect
+        let visibleSegments = StreetSweepingDataManager.shared.segments(in: visibleRect)
+        let visibleIDs = Set(visibleSegments.map { $0.id })
+
+        // Remove overlays no longer visible
+        let toRemove = displayedSegmentIDs.subtracting(visibleIDs)
+        if !toRemove.isEmpty {
+            let overlaysToRemove = mapView.overlays.filter { overlay in
+                if let polyline = overlay as? MKPolyline, let title = polyline.title {
+                    return toRemove.contains(title)
+                }
+                return false
+            }
+            mapView.removeOverlays(overlaysToRemove)
+        }
+
+        // Add new overlays
+        let toAdd = visibleIDs.subtracting(displayedSegmentIDs)
+        if !toAdd.isEmpty {
+            let newSegments = visibleSegments.filter { toAdd.contains($0.id) }
+            for segment in newSegments {
+                let polyline = segment.polyline
+                polyline.title = segment.id
+                mapView.addOverlay(polyline)
+            }
+        }
+
+        displayedSegmentIDs = visibleIDs
     }
     
     // MARK: - Parked Car Management
@@ -356,7 +394,7 @@ class MapViewController: UIViewController {
     private func updateStatusDisplay(with status: SweepingStatus) {
         switch status {
         case .noData:
-            statusLabel.text = "No sweeping data available for this location."
+            statusLabel.text = "No sweeping data for this location. This area may not have scheduled street sweeping, or it may be outside our coverage area. Check posted street signs."
             statusView.backgroundColor = UIColor.systemYellow.withAlphaComponent(0.9)
             
         case .safe:
@@ -411,20 +449,13 @@ class MapViewController: UIViewController {
             return
         }
         
-        // Get street name if possible
-        let streetName = findStreetName(for: location) ?? "Unknown Street"
-        
-        // Save parked location
-        ParkedCarManager.shared.parkCar(at: location, streetName: streetName)
-        
-        // Add annotation to map
-        addParkedCarAnnotation(at: location)
-        
-        // Update UI
-        updateUIForParkedState()
-        
-        // Check sweeping status
-        checkSweepingStatusForParkedCar()
+        // Get street name (async with geocoding fallback) and then save/update
+        findStreetName(for: location) { [weak self] streetName in
+            ParkedCarManager.shared.parkCar(at: location, streetName: streetName)
+            self?.addParkedCarAnnotation(at: location)
+            self?.updateUIForParkedState()
+            self?.checkSweepingStatusForParkedCar()
+        }
     }
     
     @objc private func clearParkButtonTapped() {
@@ -490,11 +521,10 @@ class MapViewController: UIViewController {
             // Update saved location
             ParkedCarManager.shared.updateParkedLocation(to: finalCoordinate)
             
-            // Get street name if possible
-            let streetName = findStreetName(for: finalCoordinate) ?? "Unknown Street"
-            
-            // Update annotation subtitle
-            parkedAnnotation.subtitle = streetName
+            // Get street name (async with geocoding fallback) and update annotation
+            findStreetName(for: finalCoordinate) { streetName in
+                parkedAnnotation.subtitle = streetName
+            }
             
             // Check sweeping status for new location
             checkSweepingStatusForParkedCar()
@@ -505,12 +535,17 @@ class MapViewController: UIViewController {
     
     // MARK: - Helper Methods
     
-    private func findStreetName(for coordinate: CLLocationCoordinate2D) -> String? {
-        // In MVP, we can just use the segment's street name
+    private func findStreetName(for coordinate: CLLocationCoordinate2D, completion: @escaping (String) -> Void) {
+        // Try sweeping data first
         if let segment = StreetSweepingDataManager.shared.findSegment(near: coordinate) {
-            return segment.streetName
+            completion(segment.streetName)
+            return
         }
-        return nil
+        // Fallback to reverse geocoding
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        CLGeocoder().reverseGeocodeLocation(location) { placemarks, _ in
+            completion(placemarks?.first?.thoroughfare ?? "Unknown Street")
+        }
     }
     
     private func showAlert(title: String, message: String) {
@@ -586,9 +621,10 @@ extension MapViewController: MKMapViewDelegate {
     }
     
     func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
-        // When map region changes, update the displayed street segments
-        // For efficient rendering in larger datasets
-        updateMapOverlays()
+        overlayUpdateTimer?.invalidate()
+        overlayUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+            self?.updateMapOverlays()
+        }
     }
 }
 
@@ -635,8 +671,18 @@ extension MapViewController: CLLocationManagerDelegate {
             locationManager.startUpdatingLocation()
             mapView.showsUserLocation = true
         case .denied, .restricted:
-            showAlert(title: "Location Access Denied", 
-                     message: "Please enable location services in Settings to use all features.")
+            let alert = UIAlertController(
+                title: "Location Services Required",
+                message: "EasyStreet needs your location to find nearby street sweeping schedules. Please enable location access in Settings.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "Open Settings", style: .default) { _ in
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            })
+            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+            present(alert, animated: true)
         case .notDetermined:
             locationManager.requestWhenInUseAuthorization()
         @unknown default:
