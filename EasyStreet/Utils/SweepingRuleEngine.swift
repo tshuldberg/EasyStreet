@@ -5,24 +5,8 @@ import CoreLocation
 class SweepingRuleEngine {
     // Shared instance
     static let shared = SweepingRuleEngine()
-    
-    // SF public holidays (simplified list for MVP)
-    // IMPORTANT: For a production application, this holiday list MUST be made dynamic.
-    // It should be updated annually, fetched from a reliable source, or calculated algorithmically
-    // for future years. The current list is for 2023 ONLY.
-    private let holidays: [String] = [
-        "2023-01-01", // New Year's Day
-        "2023-01-16", // MLK Day
-        "2023-02-20", // Presidents' Day
-        "2023-05-29", // Memorial Day
-        "2023-06-19", // Juneteenth
-        "2023-07-04", // Independence Day
-        "2023-09-04", // Labor Day
-        "2023-10-09", // Indigenous Peoples' Day
-        "2023-11-10", // Veterans Day (observed)
-        "2023-11-23", // Thanksgiving
-        "2023-12-25"  // Christmas
-    ]
+
+    private let holidayCalculator = HolidayCalculator()
     
     private init() {
         // Private initializer for singleton
@@ -101,10 +85,7 @@ class SweepingRuleEngine {
     /// - Parameter date: The date to check
     /// - Returns: Boolean indicating if it's a holiday
     func isHoliday(_ date: Date) -> Bool {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        let dateString = formatter.string(from: date)
-        return holidays.contains(dateString)
+        return holidayCalculator.isHoliday(date)
     }
 }
 

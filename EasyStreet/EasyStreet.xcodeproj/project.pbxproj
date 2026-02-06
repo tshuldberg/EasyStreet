@@ -7,14 +7,17 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0429AC84C9456B59DF91B587 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_AB116231-02EE-4F34-8959-7ADA6991F444" /* SceneDelegate.swift */; };
 		0EA73A1B0CD318A0C9983191 /* SweepingRuleEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5FA5359CF40EA1094CB29C0 /* SweepingRuleEngine.swift */; };
-		138B573BDB5091BEFE5376FF /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_BBC189F8-6CE8-4E38-B30F-FEFE19904850" /* AppDelegate.swift */; };
 		2F1DFFF5E43327D07FC06F72 /* StreetSweepingData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F918729EE3FC1B5C228DD5C /* StreetSweepingData.swift */; };
 		791157B5CBA6B552C21279AC /* ParkedCar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70BF8D06C110A60A014D36AF /* ParkedCar.swift */; };
-		913C8D39F172A46ED796E6D4 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_4F432EF3-565D-4FB0-A8BE-0FB60AAA0D1F" /* LaunchScreen.storyboard */; };
-		982C30A6DE0FFB42A0E9011C /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_3B34D44C-F5D3-4B75-8984-22446DF31500" /* SceneDelegate.swift */; };
-		B4A543F3366860368D1E8651 /* sweeping_data_sf.json in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_045BD0AA-996A-44C6-93F0-0A518F1F3C38" /* sweeping_data_sf.json */; };
+		8638F3982C45757767DC88C9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_30F41D3F-2110-46FE-9B15-2CF2F87FA10D" /* AppDelegate.swift */; };
+		89B4468C0840C3F1988EB923 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_66F0B701-4A85-4296-BDD4-00FCEA8B89CA" /* LaunchScreen.storyboard */; };
+		C948288BF61AAB5795B3250E /* sweeping_data_sf.json in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_A0FD85DF-D0A4-4D9C-B31E-B34113BDF2E7" /* sweeping_data_sf.json */; };
+		CB8C863BAFCBDD45F18A5BB8 /* HolidayCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A3E0A2271716CA4760307E /* HolidayCalculator.swift */; };
 		D60A42105620BA5DBBB6CEB9 /* MapViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93AC530761EE1086B5E7FCDD /* MapViewController.swift */; };
+		F0946001359CB1BC1C646F50 /* HolidayCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2325A19C259C4130A6FABD5 /* HolidayCalculatorTests.swift */; };
+		F91BB1E359D467301BCAF76B /* MapColorStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D167FA1D3F383D1C71A106EF /* MapColorStatusTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -32,13 +35,16 @@
 		6F918729EE3FC1B5C228DD5C /* StreetSweepingData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreetSweepingData.swift; sourceTree = "<group>"; };
 		70BF8D06C110A60A014D36AF /* ParkedCar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkedCar.swift; sourceTree = "<group>"; };
 		93AC530761EE1086B5E7FCDD /* MapViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapViewController.swift; sourceTree = "<group>"; };
+		B2A3E0A2271716CA4760307E /* HolidayCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HolidayCalculator.swift; sourceTree = "<group>"; };
+		C2325A19C259C4130A6FABD5 /* HolidayCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HolidayCalculatorTests.swift; sourceTree = "<group>"; };
 		C5FA5359CF40EA1094CB29C0 /* SweepingRuleEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SweepingRuleEngine.swift; sourceTree = "<group>"; };
 		D0D3B302DE0A3FB2F31786DB /* EasyStreetTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = EasyStreetTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		"TEMP_045BD0AA-996A-44C6-93F0-0A518F1F3C38" /* sweeping_data_sf.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sweeping_data_sf.json; sourceTree = "<group>"; };
-		"TEMP_3B34D44C-F5D3-4B75-8984-22446DF31500" /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
-		"TEMP_4F432EF3-565D-4FB0-A8BE-0FB60AAA0D1F" /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
-		"TEMP_BBC189F8-6CE8-4E38-B30F-FEFE19904850" /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		"TEMP_ED4570FA-0674-4757-B0C4-9D78E102C371" /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		D167FA1D3F383D1C71A106EF /* MapColorStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapColorStatusTests.swift; sourceTree = "<group>"; };
+		"TEMP_30F41D3F-2110-46FE-9B15-2CF2F87FA10D" /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		"TEMP_66F0B701-4A85-4296-BDD4-00FCEA8B89CA" /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		"TEMP_88A04CED-A5D2-4E16-B107-6D8ECBEA2078" /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		"TEMP_A0FD85DF-D0A4-4D9C-B31E-B34113BDF2E7" /* sweeping_data_sf.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sweeping_data_sf.json; sourceTree = "<group>"; };
+		"TEMP_AB116231-02EE-4F34-8959-7ADA6991F444" /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -56,6 +62,7 @@
 		62F855B908F2BECFE2273D86 /* Utils */ = {
 			isa = PBXGroup;
 			children = (
+				B2A3E0A2271716CA4760307E /* HolidayCalculator.swift */,
 				C5FA5359CF40EA1094CB29C0 /* SweepingRuleEngine.swift */,
 			);
 			path = Utils;
@@ -90,6 +97,8 @@
 		BADA49456E59BECE32441E52 /* EasyStreetTests */ = {
 			isa = PBXGroup;
 			children = (
+				C2325A19C259C4130A6FABD5 /* HolidayCalculatorTests.swift */,
+				D167FA1D3F383D1C71A106EF /* MapColorStatusTests.swift */,
 			);
 			path = EasyStreetTests;
 			sourceTree = "<group>";
@@ -103,14 +112,14 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		"TEMP_9284821D-85F1-4E6C-B46D-11EA06EF1B52" /* EasyStreet */ = {
+		"TEMP_5D970CA5-496C-495E-9D6C-1A6D773BD5AE" /* EasyStreet */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_4F432EF3-565D-4FB0-A8BE-0FB60AAA0D1F" /* LaunchScreen.storyboard */,
-				"TEMP_BBC189F8-6CE8-4E38-B30F-FEFE19904850" /* AppDelegate.swift */,
-				"TEMP_045BD0AA-996A-44C6-93F0-0A518F1F3C38" /* sweeping_data_sf.json */,
-				"TEMP_ED4570FA-0674-4757-B0C4-9D78E102C371" /* Info.plist */,
-				"TEMP_3B34D44C-F5D3-4B75-8984-22446DF31500" /* SceneDelegate.swift */,
+				"TEMP_66F0B701-4A85-4296-BDD4-00FCEA8B89CA" /* LaunchScreen.storyboard */,
+				"TEMP_30F41D3F-2110-46FE-9B15-2CF2F87FA10D" /* AppDelegate.swift */,
+				"TEMP_A0FD85DF-D0A4-4D9C-B31E-B34113BDF2E7" /* sweeping_data_sf.json */,
+				"TEMP_88A04CED-A5D2-4E16-B107-6D8ECBEA2078" /* Info.plist */,
+				"TEMP_AB116231-02EE-4F34-8959-7ADA6991F444" /* SceneDelegate.swift */,
 				62F855B908F2BECFE2273D86 /* Utils */,
 				642021DD8584264E52913303 /* Models */,
 				95B23ACF3A4690430D6470CD /* Controllers */,
@@ -191,8 +200,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				913C8D39F172A46ED796E6D4 /* LaunchScreen.storyboard in Resources */,
-				B4A543F3366860368D1E8651 /* sweeping_data_sf.json in Resources */,
+				89B4468C0840C3F1988EB923 /* LaunchScreen.storyboard in Resources */,
+				C948288BF61AAB5795B3250E /* sweeping_data_sf.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -203,10 +212,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				138B573BDB5091BEFE5376FF /* AppDelegate.swift in Sources */,
+				8638F3982C45757767DC88C9 /* AppDelegate.swift in Sources */,
+				CB8C863BAFCBDD45F18A5BB8 /* HolidayCalculator.swift in Sources */,
 				D60A42105620BA5DBBB6CEB9 /* MapViewController.swift in Sources */,
 				791157B5CBA6B552C21279AC /* ParkedCar.swift in Sources */,
-				982C30A6DE0FFB42A0E9011C /* SceneDelegate.swift in Sources */,
+				0429AC84C9456B59DF91B587 /* SceneDelegate.swift in Sources */,
 				2F1DFFF5E43327D07FC06F72 /* StreetSweepingData.swift in Sources */,
 				0EA73A1B0CD318A0C9983191 /* SweepingRuleEngine.swift in Sources */,
 			);
@@ -216,6 +226,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F0946001359CB1BC1C646F50 /* HolidayCalculatorTests.swift in Sources */,
+				F91BB1E359D467301BCAF76B /* MapColorStatusTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -290,6 +302,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -387,6 +400,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
