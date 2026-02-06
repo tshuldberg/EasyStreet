@@ -265,13 +265,20 @@ class MapViewController: UIViewController {
             mapView.removeOverlays(overlaysToRemove)
         }
 
-        // Add new overlays
+        // Add new overlays — encode color directly on the polyline via subtitle
+        // so rendererFor can read it without depending on the colorCache timing
         let toAdd = visibleIDs.subtracting(displayedSegmentIDs)
         if !toAdd.isEmpty {
             let newSegments = visibleSegments.filter { toAdd.contains($0.id) }
             for segment in newSegments {
                 let polyline = segment.polyline
                 polyline.title = segment.id
+                switch colorCache[segment.id] ?? .green {
+                case .red: polyline.subtitle = "red"
+                case .orange: polyline.subtitle = "orange"
+                case .yellow: polyline.subtitle = "yellow"
+                case .green: polyline.subtitle = "green"
+                }
                 mapView.addOverlay(polyline)
             }
         }
@@ -627,19 +634,28 @@ extension MapViewController: MKMapViewDelegate {
             let renderer = MKPolylineRenderer(polyline: polyline)
             renderer.lineWidth = 5
 
-            if let segmentID = polyline.title, let status = colorCache[segmentID] {
-                switch status {
-                case .red:
-                    renderer.strokeColor = .systemRed
-                case .orange:
-                    renderer.strokeColor = .systemOrange
-                case .yellow:
-                    renderer.strokeColor = .systemYellow
-                case .green:
-                    renderer.strokeColor = .systemGreen
+            // Read color from subtitle (set at polyline creation time) — avoids cache timing issues
+            switch polyline.subtitle {
+            case "red":
+                renderer.strokeColor = .systemRed
+            case "orange":
+                renderer.strokeColor = .systemOrange
+            case "yellow":
+                renderer.strokeColor = .systemYellow
+            case "green":
+                renderer.strokeColor = .systemGreen
+            default:
+                // Fallback: try the cache, then gray
+                if let segmentID = polyline.title, let status = colorCache[segmentID] {
+                    switch status {
+                    case .red: renderer.strokeColor = .systemRed
+                    case .orange: renderer.strokeColor = .systemOrange
+                    case .yellow: renderer.strokeColor = .systemYellow
+                    case .green: renderer.strokeColor = .systemGreen
+                    }
+                } else {
+                    renderer.strokeColor = .systemGray
                 }
-            } else {
-                renderer.strokeColor = .systemGray
             }
 
             return renderer
