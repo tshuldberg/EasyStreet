@@ -9,7 +9,7 @@
 **Session Type**: Development
 **Duration**: ~30 minutes
 **Participants**: Trey Shuldberg, Claude Code (AI Assistant) with 3 parallel agents
-**Commits**: None (uncommitted, ready to commit)
+**Commits**: `1387ac7`
 
 ### Objectives
 - Close feature gaps between Android and iOS implementations
@@ -113,7 +113,6 @@ The street-tap feature uses point-to-line-segment perpendicular distance:
 3. **sqlite3 C API directly**: Avoided third-party SQLite wrappers to keep dependencies at zero. The system `libsqlite3.tbd` is always available.
 
 ### Next Steps
-- Commit all changes
 - Write unit tests for StreetDetailViewController midpoint calculation
 - Write DatabaseManager tests (DB opens, bounding box query, segment-by-ID)
 - Consider removing the 7.4MB JSON file from the bundle once SQLite is proven stable
@@ -128,6 +127,64 @@ The street-tap feature uses point-to-line-segment perpendicular distance:
 - [MapViewController.swift](EasyStreet/EasyStreet/Controllers/MapViewController.swift)
 - [SweepingRuleEngine.swift](EasyStreet/EasyStreet/Utils/SweepingRuleEngine.swift)
 - [project.yml](EasyStreet/EasyStreet/project.yml)
+
+---
+
+## 2026-02-05 - Fix: Streets Not Color-Coded After SQLite Migration
+
+**Session Type**: Bug Fix
+**Duration**: ~10 minutes
+**Participants**: Trey Shuldberg, Claude Code (AI Assistant)
+**Commits**: `7e57f7c`
+
+### Objectives
+- Diagnose and fix streets not being color-coded when viewing San Francisco after the SQLite migration
+
+### Bug Description
+After deploying commit `1387ac7` (repository pattern + SQLite migration), streets appeared without any color coding when opening the app and navigating to San Francisco. The map showed plain polylines instead of the red/orange/yellow/green sweeping status colors.
+
+### Root Cause Analysis
+
+Two independent issues combined to cause the regression:
+
+1. **Initial map span boundary condition** — `MapViewController.swift` line 126 set the initial map span to `0.05` degrees latitude, but the zoom guard in `updateMapOverlays()` used a strict `< 0.05` check. This meant the default view was at *exactly* the threshold where overlays are skipped, so no overlays were rendered on first load.
+
+2. **SQLite loadData synchronous timing** — `StreetRepository.loadData()` called `completion(true)` synchronously when SQLite opened successfully, unlike the old JSON path which dispatched asynchronously. This caused the data-ready callback to fire during `viewDidLoad` before the map had settled its initial region, so the first `updateMapOverlays()` call used stale/default coordinates.
+
+### Technical Details
+
+#### Files Modified
+
+1. **[EasyStreet/Controllers/MapViewController.swift](EasyStreet/EasyStreet/Controllers/MapViewController.swift)** (Line 126)
+   - Changed initial map span from `0.05` to `0.03` degrees latitude
+   - Before: `let span = MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)`
+   - After: `let span = MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03)`
+   - Impact: Initial view now falls well within the `< 0.05` zoom threshold, ensuring overlays render on first load
+
+2. **[EasyStreet/Data/StreetRepository.swift](EasyStreet/EasyStreet/Data/StreetRepository.swift)** (Line 22)
+   - Wrapped SQLite success callback in `DispatchQueue.main.async`
+   - Before: `completion(true)` (synchronous)
+   - After: `DispatchQueue.main.async { completion(true) }` (async, matches JSON fallback behavior)
+   - Impact: Gives the map time to settle its initial region before triggering overlay updates, matching the behavior of the original JSON data loading path
+
+### Testing & Verification
+- Build succeeded after fix
+- All existing tests pass (HolidayCalculatorTests, MapColorStatusTests, SpatialIndexTests, SweepingRuleEngineTests)
+
+### Lessons Learned
+- Boundary conditions matter: strict inequality (`<`) vs less-than-or-equal (`<=`) caused the default zoom to be exactly at the cutoff
+- When replacing an async data loading path with a synchronous one, the callback timing semantics must be preserved to avoid race conditions with UI initialization
+
+### Next Steps
+- Write unit tests for StreetDetailViewController midpoint calculation
+- Write DatabaseManager tests (DB opens, bounding box query, segment-by-ID)
+- Consider removing the 7.4MB JSON file from the bundle once SQLite is proven stable
+
+### References
+- Commit: `7e57f7c`
+- Related commit: `1387ac7` (introduced the regression)
+- [MapViewController.swift](EasyStreet/EasyStreet/Controllers/MapViewController.swift)
+- [StreetRepository.swift](EasyStreet/EasyStreet/Data/StreetRepository.swift)
 
 ---
 
