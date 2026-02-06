@@ -279,7 +279,7 @@ class MapViewController: UIViewController {
                 case .yellow: polyline.subtitle = "yellow"
                 case .green: polyline.subtitle = "green"
                 }
-                mapView.addOverlay(polyline)
+                mapView.addOverlay(polyline, level: .aboveLabels)
             }
         }
 
@@ -632,7 +632,8 @@ extension MapViewController: MKMapViewDelegate {
     func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
         if let polyline = overlay as? MKPolyline {
             let renderer = MKPolylineRenderer(polyline: polyline)
-            renderer.lineWidth = 5
+            renderer.lineWidth = 8
+            renderer.alpha = 0.85
 
             // Read color from subtitle (set at polyline creation time) — avoids cache timing issues
             switch polyline.subtitle {
