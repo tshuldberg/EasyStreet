@@ -910,3 +910,195 @@ Dispatched two developer agents working simultaneously:
 - [docs/getting-started.md](docs/getting-started.md)
 
 ---
+
+## 2026-02-05 - iOS MVP Completion Sprint
+
+**Session Type**: Development
+**Duration**: ~3 hours
+**Participants**: AI Assistant (Claude), 3 parallel developer agents
+**Commits**: `3b3f34a`, `1956ddb`, `54c6e40`, `ee0dd88`, `92d1b31`, `676ee13`, `bafead6`, `9c61c04`, `e9e16df`
+
+### Objectives
+Complete the iOS app from "code exists but can't build" to a fully testable MVP with:
+- Xcode project generation via xcodegen
+- Real SF street data (21,809 segments from CSV)
+- Dynamic holiday calculation (replacing hardcoded 2023 list)
+- Comprehensive test suite (34 tests)
+- Enhanced 4-color map coding (red/orange/yellow/green)
+- Map performance optimization (differential overlays, zoom throttle, debounce)
+- Configurable notification timing
+- Improved error handling and UX
+
+### Technical Details
+
+#### Files Created
+1. **[EasyStreet/project.yml](EasyStreet/project.yml)** (~40 lines)
+   - xcodegen project configuration for iOS 14+
+   - App target (EasyStreet) and test target (EasyStreetTests)
+   - Bundles `sweeping_data_sf.json` as a resource
+
+2. **[tools/csv_to_json.py](tools/csv_to_json.py)** (~105 lines)
+   - Python script to convert SF street sweeping CSV (37,475 rows) to iOS-compatible JSON
+   - Parses WKT LINESTRING geometries into coordinate arrays
+   - Maps day abbreviations to numeric dayOfWeek (1=Sunday, 7=Saturday)
+   - Converts Week1-5 binary flags to weeksOfMonth arrays
+   - Generates unique segment IDs from CNN + BlockSide + BlockSweepID
+
+3. **[EasyStreet/sweeping_data_sf.json](EasyStreet/sweeping_data_sf.json)** (~7.4 MB)
+   - 21,809 street segments with coordinates and sweeping rules
+   - Generated from `Street_Sweeping_Schedule_20250508.csv` via `csv_to_json.py`
+   - Bundled into the app for offline use
+
+4. **[EasyStreet/Utils/HolidayCalculator.swift](EasyStreet/Utils/HolidayCalculator.swift)** (~72 lines)
+   - Singleton class for dynamic calculation of 11 SF public holidays for any year
+   - Fixed holidays: New Year's Day, Juneteenth, Independence Day, Veterans Day, Christmas
+   - Floating holidays: MLK Day, Presidents' Day, Memorial Day, Labor Day, Indigenous Peoples' Day, Thanksgiving
+   - Method: `isHoliday(_ date: Date) -> Bool` and `getHolidays(for year: Int) -> [Date]`
+
+5. **[EasyStreetTests/HolidayCalculatorTests.swift](EasyStreetTests/HolidayCalculatorTests.swift)** (~84 lines)
+   - 14 unit tests covering all fixed and floating holidays
+   - Tests specific known dates (e.g., Thanksgiving 2025 = Nov 27, Thanksgiving 2026 = Nov 26)
+   - Tests MLK Day, Presidents' Day, Memorial Day, Labor Day, Indigenous Peoples' Day
+   - Tests that regular non-holiday dates return false
+
+6. **[EasyStreetTests/SweepingRuleEngineTests.swift](EasyStreetTests/SweepingRuleEngineTests.swift)** (~242 lines)
+   - 16 unit tests for rule application, week-of-month logic, holiday interactions, and engine behavior
+   - Tests: `appliesTo(date:)` for correct/wrong day, week-of-month filtering, empty weeksOfMonth
+   - Tests: holiday suspension and holiday-flagged rules
+   - Tests: `hasSweeperToday()`, `nextSweeping()`, formatted time ranges, day names, weeks descriptions
+   - Tests: engine delegates `isHoliday()` to HolidayCalculator
+
+7. **[EasyStreetTests/MapColorStatusTests.swift](EasyStreetTests/MapColorStatusTests.swift)** (~57 lines)
+   - 4 unit tests for the 4-color status mapping
+   - Tests red (sweeping today), orange (sweeping tomorrow), yellow (sweeping in 2-3 days), green (no sweeping soon)
+
+#### Files Modified
+1. **[EasyStreet/Utils/SweepingRuleEngine.swift](EasyStreet/Utils/SweepingRuleEngine.swift)**
+   - Removed hardcoded 2023 holidays array (was lines 9-25, ~17 lines of static date strings)
+   - Added `HolidayCalculator` delegation: `isHoliday()` now calls `HolidayCalculator.shared.isHoliday()`
+   - Fixed 3 compilation errors: guard/let binding, var-to-let conversion, tuple destructuring
+   - Net change: -25 lines removed, +10 lines added
+
+2. **[EasyStreet/Models/StreetSweepingData.swift](EasyStreet/Models/StreetSweepingData.swift)**
+   - Added `MapColorStatus` enum with cases: `.red`, `.orange`, `.yellow`, `.green` (with `Equatable` conformance)
+   - Added `mapColorStatus() -> MapColorStatus` method on `StreetSegment`
+   - Logic: checks sweeping today (red), tomorrow (orange), in 2-3 days (yellow), else green
+   - +23 lines
+
+3. **[EasyStreet/Controllers/MapViewController.swift](EasyStreet/Controllers/MapViewController.swift)**
+   - **Performance** (commit `54c6e40`): Differential overlay updates (only add/remove changed overlays), zoom-level throttle (skips rendering when `latitudeDelta > 0.05`), 300ms debounce on region changes (+79 lines, -33 lines)
+   - **Color coding** (commit `92d1b31`): 4-color polyline renderer (red/orange/yellow/green based on `mapColorStatus()`), expanded legend view (120x120 with 4 color items) (+51 lines, -8 lines)
+   - **UI polish** (commit `e9e16df`): Pin drag scale/alpha animation feedback, map centering bug fix using `hasInitiallyLocated` flag to prevent re-centering after user interaction (+20 lines, -9 lines)
+
+4. **[EasyStreet/Models/ParkedCar.swift](EasyStreet/Models/ParkedCar.swift)**
+   - Added `notificationLeadMinutes` UserDefaults-backed property (default: 60 minutes)
+   - Replaced hardcoded `-3600` (1 hour) with configurable `TimeInterval(-notificationLeadMinutes * 60)`
+   - Added settings gear button (in MapViewController) with action sheet for 15m/30m/1h/2h options
+   - Fixed compilation issues for Codable conformance and initializer patterns
+   - +15 lines, -2 lines (in notification commit); +84 lines, -27 lines (in xcodegen commit)
+
+5. **[.claude/CLAUDE.md](.claude/CLAUDE.md)**
+   - Updated iOS build/test commands to reflect xcodegen workflow
+   - Added `xcodegen generate` as prerequisite step
+   - Added test commands for both Xcode UI and command-line xcodebuild
+   - +20 lines, -6 lines
+
+6. **[docs/getting-started.md](docs/getting-started.md)**
+   - Added xcodegen installation instructions (`brew install xcodegen`)
+   - Added project regeneration step before opening in Xcode
+   - +10 lines
+
+### Execution Approach
+Used subagent-driven development with 3 parallel developers:
+- **Developer A** (Core Logic): HolidayCalculator, SweepingRuleEngine tests, notification config
+- **Developer B** (Map & Rendering): Map performance optimization, 4-color coding, legend expansion
+- **Developer C** (UX & Docs): UI polish, documentation updates, timeline, final verification
+
+Sprint was preceded by a comprehensive planning session that produced a detailed 11-task implementation plan:
+- [docs/plans/2026-02-05-ios-mvp-sprint.md](docs/plans/2026-02-05-ios-mvp-sprint.md) (~44KB, full code specifications for each task)
+
+### Commit Progression
+
+| SHA | Description | Files Changed |
+|-----|-------------|---------------|
+| `3b3f34a` | Add Xcode project via xcodegen with test target | project.yml, project.pbxproj, ParkedCar.swift, SweepingRuleEngine.swift |
+| `1956ddb` | Add CSV-to-JSON converter and bundle real SF street data | csv_to_json.py, sweeping_data_sf.json, project.yml |
+| `54c6e40` | Optimize map overlays with diff updates, zoom throttle, debounce | MapViewController.swift |
+| `ee0dd88` | Replace hardcoded 2023 holidays with dynamic HolidayCalculator | HolidayCalculator.swift, SweepingRuleEngine.swift, HolidayCalculatorTests.swift |
+| `92d1b31` | Add orange/yellow color coding for tomorrow and 2-3 day sweeping | MapViewController.swift, StreetSweepingData.swift, MapColorStatusTests.swift |
+| `676ee13` | Update build commands for xcodegen and add test instructions | CLAUDE.md, getting-started.md |
+| `bafead6` | Add configurable notification lead time (15m/30m/1h/2h) | ParkedCar.swift |
+| `9c61c04` | Add unit tests for SweepingRule, StreetSegment, and rule engine | SweepingRuleEngineTests.swift |
+| `e9e16df` | UI polish - pin drag feedback, map centering fix | MapViewController.swift |
+
+### Testing & Verification
+
+**34 total tests, all passing (0 failures):**
+
+| Test Suite | Tests | Description |
+|------------|-------|-------------|
+| HolidayCalculatorTests | 14 | All 11 fixed and floating holidays, multi-year validation, non-holiday check |
+| SweepingRuleEngineTests | 16 | Rule application (day, week, holiday), engine status evaluation, next sweep calculation |
+| MapColorStatusTests | 4 | Red (today), orange (tomorrow), yellow (2-3 days), green (safe) |
+
+**Build verification:**
+- xcodegen project generation: SUCCESS
+- `xcodebuild build` (iPhone 14 simulator, iOS 16.2): BUILD SUCCEEDED
+- `xcodebuild test` (iPhone 14 simulator, iOS 16.2): 34/34 PASSED in 0.053 seconds
+
+### Key Improvements Over Previous State
+
+| Area | Before Sprint | After Sprint |
+|------|---------------|--------------|
+| **Build** | No .xcodeproj in repo, could not build | xcodegen-based reproducible builds |
+| **Street data** | 2 sample streets (Market, Mission) | 21,809 real SF street segments |
+| **Holidays** | Hardcoded 2023 dates (production blocker) | Dynamic calculation for any year |
+| **Test coverage** | 0 tests | 34 tests covering core logic |
+| **Map colors** | 2 colors (red/green) | 4 colors (red/orange/yellow/green) |
+| **Map performance** | Full redraw on every region change | Differential updates, zoom throttle, debounce |
+| **Notifications** | Hardcoded 1-hour lead time | Configurable 15m/30m/1h/2h |
+| **UX** | No drag feedback, centering bugs | Animated drag, stable centering |
+
+### Known Limitations & Technical Debt
+
+1. **JSON load time**: The 7.4 MB `sweeping_data_sf.json` may be slow to load on older devices. Consider chunked/streaming loading or SQLite (like Android) for production.
+2. **No integration tests**: MapViewController has no automated tests; all 34 tests are unit tests on models and engine.
+3. **Notification scheduling**: Settings gear button UI is implemented in MapViewController but the action sheet for configuring lead time should be tested on device.
+4. **Holiday list**: Currently covers 11 US federal holidays. SF may observe additional local holidays not yet included.
+5. **fopen warnings**: Two `fopen failed for data file: errno = 2` warnings appear during test runs (non-blocking, likely related to simulator data files).
+
+### Next Steps
+
+1. **Run on physical device** for real GPS testing and notification verification
+2. **Test with actual street sweeping scenarios** in SF neighborhoods
+3. **Consider adding integration tests** for MapViewController (UI testing with XCUITest)
+4. **Monitor JSON load time** with 7.4 MB bundle on older devices (iPhone 8, iPad Air 2)
+5. **Post-MVP priorities**:
+   - Real-time data updates from SF Open Data API
+   - "Where Can I Park?" safe zone suggestions
+   - Widget support for quick parking status checks
+   - Watch app for notification management
+
+### References
+
+**Sprint Plan:**
+- [docs/plans/2026-02-05-ios-mvp-sprint.md](docs/plans/2026-02-05-ios-mvp-sprint.md)
+
+**Key Source Files:**
+- [EasyStreet/project.yml](EasyStreet/project.yml) - xcodegen config
+- [EasyStreet/Utils/HolidayCalculator.swift](EasyStreet/Utils/HolidayCalculator.swift) - Dynamic holidays
+- [EasyStreet/Utils/SweepingRuleEngine.swift](EasyStreet/Utils/SweepingRuleEngine.swift) - Business logic
+- [EasyStreet/Models/StreetSweepingData.swift](EasyStreet/Models/StreetSweepingData.swift) - Data models + MapColorStatus
+- [EasyStreet/Controllers/MapViewController.swift](EasyStreet/Controllers/MapViewController.swift) - Main UI
+- [EasyStreet/Models/ParkedCar.swift](EasyStreet/Models/ParkedCar.swift) - Parking + notifications
+- [tools/csv_to_json.py](tools/csv_to_json.py) - Data converter
+
+**Test Files:**
+- [EasyStreetTests/HolidayCalculatorTests.swift](EasyStreetTests/HolidayCalculatorTests.swift) - 14 tests
+- [EasyStreetTests/SweepingRuleEngineTests.swift](EasyStreetTests/SweepingRuleEngineTests.swift) - 16 tests
+- [EasyStreetTests/MapColorStatusTests.swift](EasyStreetTests/MapColorStatusTests.swift) - 4 tests
+
+**Android Reference (for port comparison):**
+- [EasyStreet_Android/app/src/main/kotlin/com/easystreet/domain/engine/HolidayCalculator.kt](EasyStreet_Android/app/src/main/kotlin/com/easystreet/domain/engine/HolidayCalculator.kt)
+
+---
