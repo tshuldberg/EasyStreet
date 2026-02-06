@@ -18,6 +18,7 @@ targets:
           - "project.yml"
     resources:
       - path: LaunchScreen.storyboard
+      - path: sweeping_data_sf.json
       - path: Info.plist
         buildPhase: none
     settings:

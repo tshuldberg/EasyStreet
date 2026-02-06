@@ -8,11 +8,12 @@
 
 /* Begin PBXBuildFile section */
 		0EA73A1B0CD318A0C9983191 /* SweepingRuleEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5FA5359CF40EA1094CB29C0 /* SweepingRuleEngine.swift */; };
+		138B573BDB5091BEFE5376FF /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_BBC189F8-6CE8-4E38-B30F-FEFE19904850" /* AppDelegate.swift */; };
 		2F1DFFF5E43327D07FC06F72 /* StreetSweepingData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F918729EE3FC1B5C228DD5C /* StreetSweepingData.swift */; };
-		374A55979AC8C749C67ABBB0 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_42D65B24-2255-4096-B453-DD2A1D9BD110" /* SceneDelegate.swift */; };
 		791157B5CBA6B552C21279AC /* ParkedCar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70BF8D06C110A60A014D36AF /* ParkedCar.swift */; };
-		ACFD45294E5862638020AAF6 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_10CF4E9C-4ACE-4DB4-A65B-48133DA7B4F3" /* AppDelegate.swift */; };
-		C5929130A7028CDB5DF3577E /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_A748FB44-98F5-48B3-A47D-924BAD84ED48" /* LaunchScreen.storyboard */; };
+		913C8D39F172A46ED796E6D4 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_4F432EF3-565D-4FB0-A8BE-0FB60AAA0D1F" /* LaunchScreen.storyboard */; };
+		982C30A6DE0FFB42A0E9011C /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_3B34D44C-F5D3-4B75-8984-22446DF31500" /* SceneDelegate.swift */; };
+		B4A543F3366860368D1E8651 /* sweeping_data_sf.json in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_045BD0AA-996A-44C6-93F0-0A518F1F3C38" /* sweeping_data_sf.json */; };
 		D60A42105620BA5DBBB6CEB9 /* MapViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93AC530761EE1086B5E7FCDD /* MapViewController.swift */; };
 /* End PBXBuildFile section */
 
@@ -33,10 +34,11 @@
 		93AC530761EE1086B5E7FCDD /* MapViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapViewController.swift; sourceTree = "<group>"; };
 		C5FA5359CF40EA1094CB29C0 /* SweepingRuleEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SweepingRuleEngine.swift; sourceTree = "<group>"; };
 		D0D3B302DE0A3FB2F31786DB /* EasyStreetTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = EasyStreetTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		"TEMP_10CF4E9C-4ACE-4DB4-A65B-48133DA7B4F3" /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		"TEMP_42D65B24-2255-4096-B453-DD2A1D9BD110" /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
-		"TEMP_8948CDE7-F8C8-4889-8D4A-4D580586901A" /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		"TEMP_A748FB44-98F5-48B3-A47D-924BAD84ED48" /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		"TEMP_045BD0AA-996A-44C6-93F0-0A518F1F3C38" /* sweeping_data_sf.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sweeping_data_sf.json; sourceTree = "<group>"; };
+		"TEMP_3B34D44C-F5D3-4B75-8984-22446DF31500" /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		"TEMP_4F432EF3-565D-4FB0-A8BE-0FB60AAA0D1F" /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		"TEMP_BBC189F8-6CE8-4E38-B30F-FEFE19904850" /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		"TEMP_ED4570FA-0674-4757-B0C4-9D78E102C371" /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -101,13 +103,14 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		"TEMP_487B204F-D33C-4090-BA95-3A40274828F9" /* EasyStreet */ = {
+		"TEMP_9284821D-85F1-4E6C-B46D-11EA06EF1B52" /* EasyStreet */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_A748FB44-98F5-48B3-A47D-924BAD84ED48" /* LaunchScreen.storyboard */,
-				"TEMP_10CF4E9C-4ACE-4DB4-A65B-48133DA7B4F3" /* AppDelegate.swift */,
-				"TEMP_8948CDE7-F8C8-4889-8D4A-4D580586901A" /* Info.plist */,
-				"TEMP_42D65B24-2255-4096-B453-DD2A1D9BD110" /* SceneDelegate.swift */,
+				"TEMP_4F432EF3-565D-4FB0-A8BE-0FB60AAA0D1F" /* LaunchScreen.storyboard */,
+				"TEMP_BBC189F8-6CE8-4E38-B30F-FEFE19904850" /* AppDelegate.swift */,
+				"TEMP_045BD0AA-996A-44C6-93F0-0A518F1F3C38" /* sweeping_data_sf.json */,
+				"TEMP_ED4570FA-0674-4757-B0C4-9D78E102C371" /* Info.plist */,
+				"TEMP_3B34D44C-F5D3-4B75-8984-22446DF31500" /* SceneDelegate.swift */,
 				62F855B908F2BECFE2273D86 /* Utils */,
 				642021DD8584264E52913303 /* Models */,
 				95B23ACF3A4690430D6470CD /* Controllers */,
@@ -188,7 +191,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C5929130A7028CDB5DF3577E /* LaunchScreen.storyboard in Resources */,
+				913C8D39F172A46ED796E6D4 /* LaunchScreen.storyboard in Resources */,
+				B4A543F3366860368D1E8651 /* sweeping_data_sf.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -199,10 +203,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				ACFD45294E5862638020AAF6 /* AppDelegate.swift in Sources */,
+				138B573BDB5091BEFE5376FF /* AppDelegate.swift in Sources */,
 				D60A42105620BA5DBBB6CEB9 /* MapViewController.swift in Sources */,
 				791157B5CBA6B552C21279AC /* ParkedCar.swift in Sources */,
-				374A55979AC8C749C67ABBB0 /* SceneDelegate.swift in Sources */,
+				982C30A6DE0FFB42A0E9011C /* SceneDelegate.swift in Sources */,
 				2F1DFFF5E43327D07FC06F72 /* StreetSweepingData.swift in Sources */,
 				0EA73A1B0CD318A0C9983191 /* SweepingRuleEngine.swift in Sources */,
 			);
