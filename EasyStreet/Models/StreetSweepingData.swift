@@ -130,6 +130,29 @@ struct StreetSegment: Codable, Identifiable {
             rule.appliesTo(date: today)
         }
     }
+
+    /// Color status for map display
+    enum MapColorStatus: Equatable {
+        case red       // Sweeping today
+        case orange    // Sweeping tomorrow
+        case yellow    // Sweeping within 2-3 days
+        case green     // No sweeping soon
+    }
+
+    func mapColorStatus() -> MapColorStatus {
+        if hasSweeperToday() { return .red }
+
+        let cal = Calendar.current
+        let today = Date()
+        for dayOffset in 1...3 {
+            guard let futureDate = cal.date(byAdding: .day, value: dayOffset, to: today) else { continue }
+            if rules.contains(where: { $0.appliesTo(date: futureDate) }) {
+                return dayOffset == 1 ? .orange : .yellow
+            }
+        }
+
+        return .green
+    }
 }
 
 /// Manager class for handling street sweeping data

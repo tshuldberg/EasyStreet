@@ -104,6 +104,14 @@ class MapViewController: UIViewController {
             name: .parkedCarStatusDidChange,
             object: nil
         )
+
+        // Settings button
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "gear"),
+            style: .plain,
+            target: self,
+            action: #selector(settingsTapped)
+        )
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -155,8 +163,8 @@ class MapViewController: UIViewController {
             // Legend view in bottom left
             legendView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             legendView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
-            legendView.widthAnchor.constraint(equalToConstant: 100),
-            legendView.heightAnchor.constraint(equalToConstant: 80)
+            legendView.widthAnchor.constraint(equalToConstant: 120),
+            legendView.heightAnchor.constraint(equalToConstant: 120)
         ])
     }
     
@@ -213,10 +221,14 @@ class MapViewController: UIViewController {
         ])
         
         // Add legend items
-        let redItem = createLegendItem(color: .systemRed, text: "Sweeping Today")
-        let greenItem = createLegendItem(color: .systemGreen, text: "No Sweeping Today")
-        
+        let redItem = createLegendItem(color: .systemRed, text: "Today")
+        let orangeItem = createLegendItem(color: .systemOrange, text: "Tomorrow")
+        let yellowItem = createLegendItem(color: .systemYellow, text: "2-3 Days")
+        let greenItem = createLegendItem(color: .systemGreen, text: "Safe")
+
         stackView.addArrangedSubview(redItem)
+        stackView.addArrangedSubview(orangeItem)
+        stackView.addArrangedSubview(yellowItem)
         stackView.addArrangedSubview(greenItem)
     }
     
@@ -491,6 +503,24 @@ class MapViewController: UIViewController {
         }
     }
     
+    @objc private func settingsTapped() {
+        let current = ParkedCarManager.shared.notificationLeadMinutes
+        let alert = UIAlertController(
+            title: "Notification Lead Time",
+            message: "How far in advance should we notify you? Currently: \(current) minutes",
+            preferredStyle: .actionSheet
+        )
+        for minutes in [15, 30, 60, 120] {
+            let title = minutes < 60 ? "\(minutes) minutes" : "\(minutes / 60) hour\(minutes > 60 ? "s" : "")"
+            let style: UIAlertAction.Style = minutes == current ? .destructive : .default
+            alert.addAction(UIAlertAction(title: title, style: style) { _ in
+                ParkedCarManager.shared.notificationLeadMinutes = minutes
+            })
+        }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
+    }
+
     @objc private func handleLongPress(_ gestureRecognizer: UILongPressGestureRecognizer) {
         guard ParkedCarManager.shared.isCarParked, let parkedAnnotation = parkedCarAnnotation else { return }
         
@@ -568,10 +598,15 @@ extension MapViewController: MKMapViewDelegate {
                let segment = StreetSweepingDataManager.shared.segments(in: mapView.visibleMapRect)
                 .first(where: { $0.id == segmentID }) {
                 
-                // Color based on today's sweeping status
-                if segment.hasSweeperToday() {
+                // Color based on sweeping urgency
+                switch segment.mapColorStatus() {
+                case .red:
                     renderer.strokeColor = .systemRed
-                } else {
+                case .orange:
+                    renderer.strokeColor = .systemOrange
+                case .yellow:
+                    renderer.strokeColor = .systemYellow
+                case .green:
                     renderer.strokeColor = .systemGreen
                 }
             } else {
