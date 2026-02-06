@@ -64,19 +64,6 @@ class MapViewController: UIViewController {
         // Load street sweeping data
         loadStreetSweepingData()
 
-        #if DEBUG
-        // Debug: add a test polyline to verify MapKit renders overlays at all
-        let testCoords = [
-            CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
-            CLLocationCoordinate2D(latitude: 37.7849, longitude: -122.4094)
-        ]
-        let testPoly = MKPolyline(coordinates: testCoords, count: 2)
-        testPoly.title = "__debug_test__"
-        testPoly.subtitle = "red"
-        mapView.addOverlay(testPoly, level: .aboveLabels)
-        print("[EasyStreet] DEBUG: added test polyline")
-        #endif
-
         // Check if we have a previously parked car
         checkForParkedCar()
 

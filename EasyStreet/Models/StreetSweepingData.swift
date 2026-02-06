@@ -15,6 +15,7 @@ struct SweepingRule: Codable {
     // Computed property to get user-friendly day name
     var dayName: String {
         let days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        guard dayOfWeek >= 1, dayOfWeek <= 7 else { return "Unknown" }
         return days[dayOfWeek - 1]
     }
     
@@ -39,7 +40,7 @@ struct SweepingRule: Codable {
         }
 
         let ordinals = ["1st", "2nd", "3rd", "4th", "5th"]
-        let weekNames = weeksOfMonth.compactMap { week in
+        let weekNames = weeksOfMonth.compactMap { week -> String? in
             guard week >= 1, week <= ordinals.count else { return nil }
             return ordinals[week - 1]
         }
@@ -91,7 +92,10 @@ struct StreetSegment: Codable, Identifiable {
         StreetSegment.polylineCacheLock.lock()
         defer { StreetSegment.polylineCacheLock.unlock() }
         if let cached = StreetSegment.polylineCache[id] { return cached }
-        let points = coordinates.map { CLLocationCoordinate2D(latitude: $0[0], longitude: $0[1]) }
+        let points = coordinates.compactMap { coord -> CLLocationCoordinate2D? in
+            guard coord.count >= 2 else { return nil }
+            return CLLocationCoordinate2D(latitude: coord[0], longitude: coord[1])
+        }
         let pl = MKPolyline(coordinates: points, count: points.count)
         StreetSegment.polylineCache[id] = pl
         return pl
@@ -321,6 +325,7 @@ class StreetSweepingDataManager {
                 for id in ids {
                     guard let segment = segmentsByID[id] else { continue }
                     for coord in segment.coordinates {
+                        guard coord.count >= 2 else { continue }
                         let mapPoint = MKMapPoint(CLLocationCoordinate2D(latitude: coord[0], longitude: coord[1]))
                         let dx = targetMapPoint.x - mapPoint.x
                         let dy = targetMapPoint.y - mapPoint.y
@@ -378,6 +383,7 @@ class StreetSweepingDataManager {
         var maxX = -Double.greatestFiniteMagnitude
         var maxY = -Double.greatestFiniteMagnitude
         for coord in coordinates {
+            guard coord.count >= 2 else { continue }
             let mapPoint = MKMapPoint(CLLocationCoordinate2D(latitude: coord[0], longitude: coord[1]))
             minX = min(minX, mapPoint.x)
             minY = min(minY, mapPoint.y)

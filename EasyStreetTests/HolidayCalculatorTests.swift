@@ -119,10 +119,10 @@ class HolidayCalculatorTests: XCTestCase {
         XCTAssertFalse(calculator.isHoliday(date(2026, 8, 20)))
     }
 
-    func testGetHolidaysReturns12() {
-        // 4 fixed + 7 floating + 1 day-after-Thanksgiving = 12
+    func testGetHolidaysReturns11() {
+        // 4 fixed + 6 floating + 1 day-after-Thanksgiving = 11
         let holidays = calculator.holidays(for: 2026)
-        XCTAssertEqual(holidays.count, 12)
+        XCTAssertEqual(holidays.count, 11)
     }
 
     // MARK: - Helpers

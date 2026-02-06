@@ -11,7 +11,9 @@ class ParkedCarManager {
     private struct NotificationIDs {
         static let sweepingReminderPrefix = "sweepingReminder_"
     }
-    private var scheduledNotificationIDs: [String] = []
+    private var scheduledNotificationIDs: [String] {
+        didSet { defaults.set(scheduledNotificationIDs, forKey: UserDefaultsKeys.scheduledNotificationIDs) }
+    }
 
     // UserDefaults keys
     private struct UserDefaultsKeys {
@@ -20,17 +22,20 @@ class ParkedCarManager {
         static let parkedTimestamp = "parkedTimestamp"
         static let parkedStreetName = "parkedStreetName"
         static let notificationLeadMinutes = "notificationLeadMinutes"
+        static let scheduledNotificationIDs = "scheduledNotificationIDs"
     }
 
     private let defaults: UserDefaults
 
     private init() {
         self.defaults = .standard
+        self.scheduledNotificationIDs = defaults.stringArray(forKey: UserDefaultsKeys.scheduledNotificationIDs) ?? []
     }
 
     /// Injectable initializer for testing
     init(defaults: UserDefaults) {
         self.defaults = defaults
+        self.scheduledNotificationIDs = defaults.stringArray(forKey: UserDefaultsKeys.scheduledNotificationIDs) ?? []
     }
 
     // MARK: - Properties

@@ -38,13 +38,14 @@ class SpatialIndexTests: XCTestCase {
 
     func testHolidayCacheWorksAcrossYears() {
         let calc = HolidayCalculator()
-        let christmas2025 = makeDate(2025, 12, 25)
-        let christmas2026 = makeDate(2026, 12, 25)
-        let christmas2027 = makeDate(2027, 12, 25)
+        let christmas2025 = makeDate(2025, 12, 25) // Thursday
+        let christmas2026 = makeDate(2026, 12, 25) // Friday
+        // Christmas 2027 falls on Saturday, observed Friday Dec 24
+        let christmas2027observed = makeDate(2027, 12, 24)
 
         XCTAssertTrue(calc.isHoliday(christmas2025))
         XCTAssertTrue(calc.isHoliday(christmas2026))
-        XCTAssertTrue(calc.isHoliday(christmas2027))
+        XCTAssertTrue(calc.isHoliday(christmas2027observed))
     }
 
     // MARK: - mapColorStatus with pre-computed dates

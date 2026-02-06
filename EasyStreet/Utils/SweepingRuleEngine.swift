@@ -17,71 +17,8 @@ class SweepingRuleEngine {
     ///   - location: The location to check (typically where car is parked)
     ///   - completion: Completion handler with sweeping status result
     func analyzeSweeperStatus(for location: CLLocationCoordinate2D, completion: @escaping (SweepingStatus) -> Void) {
-        // Get the street segment for this location
-        guard let segment = StreetRepository.shared.findSegment(near: location) else {
-            completion(.noData)
-            return
-        }
-        
-        // Check if sweeping is today
-        if segment.hasSweeperToday() {
-            // Find the rule that applies to today
-            let today = Date()
-            let calendar = Calendar.current
-            let weekday = calendar.component(.weekday, from: today)
-            
-            if let todayRule = segment.rules.first(where: { rule in
-                rule.dayOfWeek == weekday && rule.appliesTo(date: today)
-            }) {
-                // Parse the rule times to get actual start time
-                let formatter = DateFormatter()
-                formatter.dateFormat = "HH:mm"
-                
-                let startTimeString = todayRule.startTime
-                guard let startTime = formatter.date(from: startTimeString) else {
-                    completion(.unknown)
-                    return
-                }
-                
-                // Set time components only (keep today's date)
-                guard let sweepingDateTime = calendar.date(bySettingHour: calendar.component(.hour, from: startTime),
-                                                           minute: calendar.component(.minute, from: startTime),
-                                                           second: 0,
-                                                           of: today) else {
-                    completion(.unknown)
-                    return
-                }
-                
-                // Check if we're past today's sweeping
-                if sweepingDateTime < today {
-                    // Sweeping already happened today, so it's safe to park
-                    completion(.safe)
-                } else {
-                    // Sweeping is later today
-                    let timeRemaining = sweepingDateTime.timeIntervalSince(today)
-                    let hoursRemaining = timeRemaining / 3600
-                    
-                    if hoursRemaining < 1 {
-                        // Less than 1 hour until sweeping
-                        completion(.imminent(time: sweepingDateTime, streetName: segment.streetName))
-                    } else {
-                        // Sweeping today but not imminent
-                        completion(.today(time: sweepingDateTime, streetName: segment.streetName))
-                    }
-                }
-            } else {
-                // This shouldn't happen if hasSweeperToday is accurate
-                completion(.safe)
-            }
-        } else {
-            // Check for next upcoming sweeping
-            let (nextDate, _) = segment.nextSweeping()
-            if let nextDate = nextDate {
-                completion(.upcoming(time: nextDate, streetName: segment.streetName))
-            } else {
-                completion(.safe)
-            }
-        }
+        let segment = StreetRepository.shared.findSegment(near: location)
+        completion(determineStatus(for: segment, at: Date()))
     }
     
     /// Testable method: determine sweeping status for a segment at a given time.

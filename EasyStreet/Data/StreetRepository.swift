@@ -11,6 +11,7 @@ class StreetRepository {
     private var useSQLite = false
     private(set) var dataSourceInfo: String?
     private(set) var dataBuildDate: String?
+    private static let cacheLimit = 1000
     private var coordinateCache: [String: [[Double]]] = [:]
 
     private init() {}
@@ -78,7 +79,12 @@ class StreetRepository {
 
                 if segmentMap[id] == nil {
                     let coordinates = coordinateCache[id] ?? parseCoordinatesJSON(coordsJSON)
-                    if coordinateCache[id] == nil { coordinateCache[id] = coordinates }
+                    if coordinateCache[id] == nil {
+                        if coordinateCache.count >= StreetRepository.cacheLimit {
+                            coordinateCache.removeAll()
+                        }
+                        coordinateCache[id] = coordinates
+                    }
                     segmentMap[id] = (id: id, streetName: streetName, coordinates: coordinates, rules: [])
                 }
 
@@ -184,6 +190,7 @@ class StreetRepository {
 
         for entry in segmentMap.values {
             for coord in entry.coordinates {
+                guard coord.count >= 2 else { continue }
                 let pt = MKMapPoint(CLLocationCoordinate2D(latitude: coord[0], longitude: coord[1]))
                 let dx = targetMapPoint.x - pt.x
                 let dy = targetMapPoint.y - pt.y
