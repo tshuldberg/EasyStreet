@@ -123,7 +123,7 @@ class MapViewController: UIViewController {
         // Set initial region to San Francisco
         let sfCoordinate = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
         let region = MKCoordinateRegion(center: sfCoordinate,
-                                        span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05))
+                                        span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03))
         mapView.setRegion(region, animated: false)
 
         // Set up gesture recognizer for pin adjustment

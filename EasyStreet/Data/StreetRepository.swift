@@ -19,7 +19,7 @@ class StreetRepository {
             try DatabaseManager.shared.open()
             useSQLite = true
             print("StreetRepository: using SQLite backing store")
-            completion(true)
+            DispatchQueue.main.async { completion(true) }
         } catch {
             // Fall back to JSON in-memory data manager
             print("StreetRepository: SQLite unavailable (\(error.localizedDescription)), falling back to JSON")
