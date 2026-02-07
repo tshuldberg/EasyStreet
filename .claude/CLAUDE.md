@@ -162,6 +162,88 @@ cd EasyStreet_Android
 
 ---
 
+## Agent Usage Standards
+
+Guidelines for using Claude Code subagents, agent teams, and parallel workflows effectively on this project. Derived from [Anthropic's agent teams documentation](https://code.claude.com/docs/en/agent-teams) and [lessons from autonomous agent workflows](https://www.anthropic.com/engineering/building-c-compiler).
+
+### Choosing the Right Approach
+
+| Situation | Use | Why |
+|---|---|---|
+| Single focused task (bug fix, one feature) | **Single session** | No coordination overhead |
+| 2-4 independent research/search tasks | **Subagents** (Task tool) | Quick, focused; results return to caller |
+| Parallel implementation across separate files | **Agent team** | Teammates coordinate and share findings |
+| Sequential tasks or same-file edits | **Single session** | Teams add overhead without benefit here |
+
+**Default to the simplest approach.** Only escalate to agent teams when parallel exploration genuinely adds value. Agent teams use significantly more tokens than single sessions.
+
+### When Agent Teams Add Value
+- **Research and review**: multiple angles investigated simultaneously
+- **New modules/features**: teammates each own a separate file set
+- **Debugging competing hypotheses**: test different theories in parallel
+- **Cross-layer work**: iOS + Android changes, or frontend + backend + tests
+
+### Task Decomposition
+
+**Break work into small, discrete tasks.** This is the single most important factor for agent success.
+
+- **Too small**: coordination overhead exceeds the benefit (don't split a 10-line change across agents)
+- **Too large**: agents work too long without check-ins, risk wasted effort and merge conflicts
+- **Right size**: self-contained units that produce a clear deliverable (a function, a test file, a review)
+- **Aim for 5-6 tasks per teammate** to keep everyone productive and allow reassignment if someone gets stuck
+- **Avoid monolithic tasks**: all agents hitting the same large problem causes redundant work and conflicts
+
+### File Ownership (Critical)
+
+**Each agent must own a distinct set of files.** Two agents editing the same file leads to overwrites and lost work.
+
+For this project, natural ownership boundaries:
+- **iOS agent**: files under `EasyStreet/` (Swift sources)
+- **Android agent**: files under `EasyStreet_Android/` (Kotlin sources)
+- **Test agent**: test files only
+- **Docs agent**: `timeline.md`, `docs/`, `README.md`
+
+### Context & Communication
+
+- **Teammates don't inherit conversation history.** Include all task-specific details in spawn prompts — file paths, line numbers, technical approach, acceptance criteria.
+- **CLAUDE.md is shared automatically.** All teammates read this file, so project context here benefits everyone.
+- **Log to files, not stdout.** For verbose output (test results, build logs), write to files agents can selectively access rather than flooding context windows.
+- **Use machine-parseable output** when building test harnesses or verification scripts (e.g., `ERROR:` markers on the same line as the reason).
+
+### Quality Gates
+
+- **Require plan approval for risky work.** When spawning teammates for complex changes, require plan approval before they edit code.
+- **Strong test harnesses are critical.** Autonomous agents need nearly perfect task verification — invest in clear, deterministic test scripts.
+- **Regression detection is mandatory.** New features and bug fixes frequently break existing functionality when agents lack strong regression testing. Always run the full test suite, not just new tests.
+- **Verify before claiming done.** Use the `superpowers:verification-before-completion` skill — run build + test commands and confirm output before marking work complete.
+
+### Coordination Patterns
+
+- **Monitor and steer.** Don't let agent teams run unattended for too long. Check in, redirect approaches that aren't working, synthesize findings.
+- **Start with research, then implement.** If new to teams on a task, begin with read-only research agents before spawning implementation agents.
+- **Use delegate mode** when the lead should coordinate only, not implement.
+- **Track work via task lists.** Prevent duplicate effort — agents should claim tasks before starting and mark complete when done.
+- **Pre-approve common permissions** in settings to reduce friction from permission prompts during team work.
+
+### Cleanup & Lifecycle
+
+- **Always clean up teams via the lead**, not teammates. Teammate context may not resolve correctly.
+- **Shut down teammates gracefully** before cleaning up the team — cleanup fails if teammates are still active.
+- **One team per session.** Clean up the current team before starting a new one.
+
+### Anti-Patterns to Avoid
+
+| Anti-Pattern | Why It Fails | Do Instead |
+|---|---|---|
+| All agents work on one monolithic task | Redundant work, merge conflicts | Split into independent subtasks |
+| Agents edit the same files | Overwrites and lost work | Assign file ownership boundaries |
+| No test verification | Silent regressions accumulate | Run full test suite after changes |
+| Verbose output flooding context | Wastes token budget on noise | Log details to files, summarize in context |
+| Spawning teams for simple tasks | Coordination overhead exceeds benefit | Use single session or subagent |
+| Letting teams run unmonitored | Wasted effort, divergent approaches | Check in regularly, steer as needed |
+
+---
+
 ## Development Timeline (CRITICAL - Required for All Sessions)
 
 ### Timeline Documentation
@@ -452,6 +534,140 @@ If user asks to "update timeline" or "document this session":
 - Use environment variables or gradle.properties (gitignored)
 - **NEVER commit `.claude.json`** — it contains MCP server API keys (e.g. Context7). It is gitignored via `.gitignore`.
 - When adding new MCP servers or secrets to Claude Code config, verify they are covered by `.gitignore` before committing
+
+---
+
+## Plugins & Skills
+
+This project uses the Claude Code plugins system to extend capabilities. Plugins are managed via the `/plugin` command and configured in `.claude/settings.json` (project scope) and `~/.claude/settings.json` (user scope).
+
+### Marketplaces
+
+Three plugin marketplaces are configured:
+
+| Marketplace | Source | Description |
+|---|---|---|
+| `claude-plugins-official` | `anthropics/claude-plugins-official` | Official Anthropic-managed plugins |
+| `superpowers-marketplace` | `obra/superpowers-marketplace` | Community workflow plugins by Jesse Vincent |
+| `dev-browser-marketplace` | `SawyerHood/dev-browser` | Browser automation plugin |
+
+### Enabled Plugins
+
+These plugins are active and loaded in every session for this project:
+
+**Project-scoped** (`.claude/settings.json`):
+| Plugin | Source | Description |
+|---|---|---|
+| `superpowers` | claude-plugins-official (v4.1.1) | Core skills: TDD, debugging, collaboration patterns, proven workflows |
+| `claude-code-setup` | claude-plugins-official (v1.0.0) | Analyze codebases and recommend Claude Code automations |
+| `claude-md-management` | claude-plugins-official (v1.0.0) | Tools to audit, improve, and maintain CLAUDE.md files |
+| `dev-browser` | dev-browser-marketplace | Browser automation with persistent page state (Playwright) |
+| `context7` | claude-plugins-official | MCP server for up-to-date library documentation lookup |
+| `code-review` | claude-plugins-official | Automated PR code review with specialized agents and confidence scoring |
+| `github` | claude-plugins-official | GitHub MCP server for issues, PRs, and repository management |
+| `feature-dev` | claude-plugins-official | 7-phase feature development with code-explorer, code-architect, and code-reviewer agents |
+| `commit-commands` | claude-plugins-official | Git workflow commands: `/commit`, `/commit-push-pr`, `/clean_gone` |
+| `ralph-loop` | claude-plugins-official | Iterative development loops (`/ralph-loop`, `/cancel-ralph`) |
+| `code-simplifier` | claude-plugins-official (v1.0.0) | Agent that simplifies code for clarity and maintainability |
+| `figma` | claude-plugins-official (v1.0.0) | Figma MCP server and design-to-code workflows |
+| `frontend-design` | claude-plugins-official | Frontend UI/UX implementation skill |
+| `typescript-lsp` | claude-plugins-official (v1.0.0) | TypeScript Language Server Protocol support |
+
+**User-scoped** (`~/.claude/settings.json`):
+| Plugin | Source | Description |
+|---|---|---|
+| `swift-lsp` | claude-plugins-official (v1.0.0) | Swift Language Server Protocol for code intelligence |
+
+### Available Skills (Model-Invoked)
+
+Skills are activated automatically when relevant. These are available from the enabled plugins:
+
+**From `superpowers`:**
+- `superpowers:brainstorming` - Use before any creative work (features, components, modifications)
+- `superpowers:dispatching-parallel-agents` - For 2+ independent tasks that can run in parallel
+- `superpowers:executing-plans` - Execute implementation plans with review checkpoints
+- `superpowers:finishing-a-development-branch` - Guide branch completion (merge, PR, cleanup)
+- `superpowers:receiving-code-review` - Process code review feedback with technical rigor
+- `superpowers:requesting-code-review` - Verify work meets requirements before merging
+- `superpowers:subagent-driven-development` - Execute plans with independent tasks via subagents
+- `superpowers:systematic-debugging` - Structured approach to bugs and test failures
+- `superpowers:test-driven-development` - Write tests before implementation code
+- `superpowers:using-git-worktrees` - Isolated git worktrees for feature work
+- `superpowers:using-superpowers` - Bootstraps skill discovery at conversation start
+- `superpowers:verification-before-completion` - Run verification before claiming work is done
+- `superpowers:writing-plans` - Plan multi-step tasks before writing code
+- `superpowers:writing-skills` - Create, edit, and verify skills
+
+**From `claude-code-setup`:**
+- `claude-code-setup:claude-automation-recommender` - Recommend hooks, skills, MCP servers, plugins for a codebase
+
+**From `claude-md-management`:**
+- `claude-md-management:claude-md-improver` - Audit and improve CLAUDE.md files against quality criteria
+
+**From `dev-browser`:**
+- `dev-browser:dev-browser` - Navigate websites, fill forms, take screenshots, test web apps
+
+**From `code-review`:**
+- Code review agent with confidence-based scoring for PRs
+
+**From `feature-dev`:**
+- 7-phase feature workflow with specialized agents (code-explorer, code-architect, code-reviewer)
+
+**From `code-simplifier`:**
+- Code simplification agent for clarity and maintainability
+
+**From `frontend-design`:**
+- Frontend UI/UX implementation guidance
+
+### Available Slash Commands (User-Invoked)
+
+These can be typed directly in the Claude Code prompt:
+
+| Command | Plugin | Description |
+|---|---|---|
+| `/claude-md-management:revise-claude-md` | claude-md-management | Update CLAUDE.md with session learnings |
+| `/commit-commands:commit` | commit-commands | Stage and commit changes |
+| `/commit-commands:commit-push-pr` | commit-commands | Commit, push, and create a PR |
+| `/commit-commands:clean_gone` | commit-commands | Clean up local branches with deleted remotes |
+| `/ralph-loop:ralph-loop` | ralph-loop | Start an iterative development loop |
+| `/ralph-loop:cancel-ralph` | ralph-loop | Cancel a running ralph loop |
+| `/ralph-loop:help` | ralph-loop | Ralph loop usage help |
+| `/code-review:code-review` | code-review | Run automated code review |
+| `/feature-dev:feature-dev` | feature-dev | Start a 7-phase feature development workflow |
+
+### MCP Servers
+
+Active MCP servers providing tools to Claude:
+
+- **Context7** (Upstash) - Library documentation lookup via `mcp__context7__resolve-library-id` and `mcp__context7__query-docs`. Configured in `.claude.json` (gitignored).
+
+### Managing Plugins
+
+```bash
+# List available plugins from marketplaces
+/plugin marketplace list
+
+# Install a plugin
+/plugin install plugin-name@marketplace-name --scope project
+
+# Enable/disable installed plugins
+/plugin enable plugin-name
+/plugin disable plugin-name
+
+# Update plugins
+/plugin update plugin-name
+
+# Uninstall
+/plugin uninstall plugin-name
+```
+
+### Plugin Configuration Files
+
+- **Project plugins:** `.claude/settings.json` → `enabledPlugins` (committed to git)
+- **User plugins:** `~/.claude/settings.json` → `enabledPlugins` (personal)
+- **Local overrides:** `.claude/settings.local.json` (gitignored)
+- **Plugin cache:** `~/.claude/plugins/cache/` (auto-managed)
+- **Marketplace repos:** `~/.claude/plugins/marketplaces/` (auto-managed)
 
 ---
 
