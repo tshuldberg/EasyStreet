@@ -1,6 +1,7 @@
 package com.easystreet.data.repository
 
 import com.easystreet.data.db.StreetDao
+import com.easystreet.domain.model.StreetSearchResult
 import com.easystreet.domain.model.StreetSegment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,5 +20,10 @@ class StreetRepository(private val dao: StreetDao) {
     suspend fun findNearestSegment(lat: Double, lng: Double): StreetSegment? =
         withContext(Dispatchers.IO) {
             dao.findNearestSegment(lat, lng)
+        }
+
+    suspend fun searchStreets(query: String): List<StreetSearchResult> =
+        withContext(Dispatchers.IO) {
+            dao.searchStreetsByName(query)
         }
 }

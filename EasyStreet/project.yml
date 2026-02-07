@@ -26,6 +26,7 @@ targets:
         buildPhase: none
     dependencies:
       - sdk: libsqlite3.tbd
+      - sdk: Network.framework
     settings:
       base:
         INFOPLIST_FILE: Info.plist

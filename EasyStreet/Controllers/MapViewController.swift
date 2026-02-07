@@ -44,6 +44,9 @@ class MapViewController: UIViewController {
     private var overlayUpdateTimer: Timer?
     private var lastOverlayUpdate: Date?
     private var rendererLogCount = 0
+    private let offlineBanner = OfflineBannerView()
+    private let searchResultsView = SearchResultsView()
+    private var searchDebounceTimer: Timer?
 
     // MARK: - Lifecycle
 
@@ -72,6 +75,13 @@ class MapViewController: UIViewController {
             self,
             selector: #selector(parkedCarStatusChanged),
             name: .parkedCarStatusDidChange,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(connectivityChanged),
+            name: .connectivityDidChange,
             object: nil
         )
 
@@ -115,6 +125,8 @@ class MapViewController: UIViewController {
     private func setupViews() {
         view.addSubview(mapView)
         view.addSubview(searchBar)
+        view.addSubview(offlineBanner)
+        view.addSubview(searchResultsView)
         view.addSubview(parkingCard)
         view.addSubview(legendView)
 
@@ -130,6 +142,17 @@ class MapViewController: UIViewController {
             searchBar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
             searchBar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
 
+            // Offline banner below search bar
+            offlineBanner.topAnchor.constraint(equalTo: searchBar.bottomAnchor),
+            offlineBanner.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            offlineBanner.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+
+            // Search results below search bar
+            searchResultsView.topAnchor.constraint(equalTo: searchBar.bottomAnchor),
+            searchResultsView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
+            searchResultsView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
+            searchResultsView.heightAnchor.constraint(lessThanOrEqualToConstant: 200),
+
             // Parking card at bottom
             parkingCard.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
             parkingCard.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
@@ -141,6 +164,8 @@ class MapViewController: UIViewController {
             legendView.widthAnchor.constraint(equalToConstant: 120),
             legendView.heightAnchor.constraint(equalToConstant: 120)
         ])
+
+        searchResultsView.delegate = self
 
         // Start in not-parked state
         parkingCard.configure(for: .notParked)
@@ -645,10 +670,23 @@ class MapViewController: UIViewController {
             completion(segment.streetName)
             return
         }
+        // Offline: skip network geocoding
+        guard ConnectivityMonitor.shared.isConnected else {
+            completion("Unknown Street")
+            return
+        }
         // Fallback to reverse geocoding
         let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         CLGeocoder().reverseGeocodeLocation(location) { placemarks, _ in
             completion(placemarks?.first?.thoroughfare ?? "Unknown Street")
+        }
+    }
+
+    @objc private func connectivityChanged() {
+        if ConnectivityMonitor.shared.isConnected {
+            offlineBanner.hide()
+        } else {
+            offlineBanner.show()
         }
     }
 
@@ -657,9 +695,13 @@ class MapViewController: UIViewController {
     }
 
     private func showDisclaimer(isFirstLaunch: Bool) {
+        var message = DisclaimerManager.disclaimerBody
+        if let buildDate = streetRepo.dataBuildDate {
+            message += "\n\nStreet data last updated: \(buildDate)"
+        }
         let alert = UIAlertController(
             title: DisclaimerManager.disclaimerTitle,
-            message: DisclaimerManager.disclaimerBody,
+            message: message,
             preferredStyle: .alert
         )
         if isFirstLaunch {
@@ -781,34 +823,64 @@ extension MapViewController: MKMapViewDelegate {
 // MARK: - UISearchBarDelegate
 
 extension MapViewController: UISearchBarDelegate {
-    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
-        searchBar.resignFirstResponder()
-
-        guard let searchText = searchBar.text, !searchText.isEmpty else {
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        searchDebounceTimer?.invalidate()
+        guard !searchText.isEmpty else {
+            searchResultsView.clear()
             return
         }
-
-        // Geocode the address
-        let geocoder = CLGeocoder()
-        geocoder.geocodeAddressString(searchText) { [weak self] placemarks, error in
+        searchDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: false) { [weak self] _ in
             guard let self = self else { return }
-
-            if let error = error {
-                self.showAlert(title: "Geocoding Error", message: error.localizedDescription)
-                return
-            }
-
-            guard let placemark = placemarks?.first,
-                  let location = placemark.location?.coordinate else {
-                self.showAlert(title: "Location Not Found", message: "Could not find the address.")
-                return
-            }
-
-            // Center map on the location
-            let region = MKCoordinateRegion(center: location,
-                                            span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
-            self.mapView.setRegion(region, animated: true)
+            let results = self.streetRepo.searchStreets(query: searchText)
+            self.searchResultsView.update(with: results)
         }
+    }
+
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.resignFirstResponder()
+        searchResultsView.clear()
+
+        guard let searchText = searchBar.text, !searchText.isEmpty else { return }
+
+        // Try local search first
+        let localResults = streetRepo.searchStreets(query: searchText)
+
+        if localResults.count == 1 {
+            // Single match: navigate directly
+            let result = localResults[0]
+            let region = MKCoordinateRegion(center: result.coordinate,
+                                            span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
+            mapView.setRegion(region, animated: true)
+        } else if localResults.count > 1 {
+            // Multiple matches: show dropdown
+            searchResultsView.update(with: localResults)
+        } else if ConnectivityMonitor.shared.isConnected {
+            // No local results, online: fall back to geocoder
+            let geocoder = CLGeocoder()
+            geocoder.geocodeAddressString(searchText) { [weak self] placemarks, error in
+                guard let self = self else { return }
+                if let error = error {
+                    self.showAlert(title: "Search Error", message: error.localizedDescription)
+                    return
+                }
+                guard let placemark = placemarks?.first,
+                      let location = placemark.location?.coordinate else {
+                    self.showAlert(title: "Not Found", message: "Could not find that address.")
+                    return
+                }
+                let region = MKCoordinateRegion(center: location,
+                                                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
+                self.mapView.setRegion(region, animated: true)
+            }
+        } else {
+            // No local results, offline
+            showAlert(title: "Not Found", message: "No matching streets found. Connect to the internet to search addresses outside our database.")
+        }
+    }
+
+    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.resignFirstResponder()
+        searchResultsView.clear()
     }
 }
 
@@ -897,5 +969,18 @@ extension MapViewController: StreetDetailDelegate {
         parkingRepo.parkCar(at: coordinate, streetName: streetName)
         addParkedCarAnnotation(at: coordinate)
         checkSweepingStatusForParkedCar()
+    }
+}
+
+// MARK: - SearchResultsDelegate
+
+extension MapViewController: SearchResultsDelegate {
+    func didSelectStreet(name: String, coordinate: CLLocationCoordinate2D) {
+        searchResultsView.clear()
+        searchBar.resignFirstResponder()
+        searchBar.text = name
+        let region = MKCoordinateRegion(center: coordinate,
+                                        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
+        mapView.setRegion(region, animated: true)
     }
 }

@@ -3,6 +3,7 @@ package com.easystreet.notification
 import android.content.Context
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import java.time.Duration
@@ -29,7 +30,7 @@ object NotificationScheduler {
         val sweepEpochMillis = sweepingTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val workName = "sweeping_alert_$sweepEpochMillis"
 
-        val workRequest = OneTimeWorkRequestBuilder<SweepingNotificationWorker>()
+        val builder = OneTimeWorkRequestBuilder<SweepingNotificationWorker>()
             .setInitialDelay(delay.toMillis(), TimeUnit.MILLISECONDS)
             .addTag(WORK_TAG)
             .setInputData(
@@ -38,7 +39,13 @@ object NotificationScheduler {
                     SweepingNotificationWorker.KEY_SWEEP_TIME to sweepEpochMillis,
                 )
             )
-            .build()
+
+        // Use expedited work for short delays (< 30 minutes) to ensure timely delivery
+        if (delay.toMinutes() < 30) {
+            builder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+        }
+
+        val workRequest = builder.build()
 
         WorkManager.getInstance(context)
             .enqueueUniqueWork(workName, ExistingWorkPolicy.REPLACE, workRequest)

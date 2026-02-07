@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
@@ -54,6 +55,8 @@ fun MapScreen(viewModel: MapViewModel = viewModel()) {
     val parkedCar by viewModel.parkingRepo.parkedCar.collectAsState()
     val sweepingStatus by viewModel.sweepingStatus.collectAsState()
     val dbError by viewModel.dbError.collectAsState()
+    val isOnline by viewModel.isOnline.collectAsState()
+    val searchResults by viewModel.searchResults.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
     var showSearch by remember { mutableStateOf(false) }
@@ -139,7 +142,17 @@ fun MapScreen(viewModel: MapViewModel = viewModel()) {
         AlertDialog(
             onDismissRequest = { /* Require explicit dismissal */ },
             title = { Text(DisclaimerManager.DISCLAIMER_TITLE) },
-            text = { Text(DisclaimerManager.DISCLAIMER_BODY) },
+            text = {
+                Column {
+                    Text(DisclaimerManager.DISCLAIMER_BODY)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Street data last updated: ${com.easystreet.BuildConfig.STREET_DATA_DATE}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
             confirmButton = {
                 TextButton(onClick = {
                     DisclaimerManager.markDisclaimerSeen(context)
@@ -232,33 +245,101 @@ fun MapScreen(viewModel: MapViewModel = viewModel()) {
             )
         }
 
+        // Offline banner
+        if (!isOnline) {
+            OfflineBanner(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = if (showSearch) 80.dp else 56.dp),
+            )
+        }
+
         // Search bar / search icon (top-right)
         if (showSearch) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
                     .align(Alignment.TopCenter),
-                placeholder = { Text("Search address...") },
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                ),
-                trailingIcon = {
-                    TextButton(onClick = {
-                        scope.launch {
-                            searchAddress(context, searchQuery, cameraPositionState)
-                            showSearch = false
-                            searchQuery = ""
+            ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = {
+                        searchQuery = it
+                        viewModel.searchStreets(it)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = {
+                        Text(if (isOnline) "Search address..." else "Search SF streets (offline)...")
+                    },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                    trailingIcon = {
+                        TextButton(onClick = {
+                            scope.launch {
+                                val localResults = searchResults
+                                if (localResults.size == 1) {
+                                    cameraPositionState.animate(
+                                        CameraUpdateFactory.newLatLngZoom(
+                                            LatLng(localResults[0].centerLat, localResults[0].centerLng),
+                                            17f,
+                                        )
+                                    )
+                                } else if (localResults.isEmpty() && isOnline) {
+                                    searchAddress(context, searchQuery, cameraPositionState)
+                                }
+                                viewModel.clearSearch()
+                                showSearch = false
+                                searchQuery = ""
+                            }
+                        }) {
+                            Text("Go")
                         }
-                    }) {
-                        Text("Go")
+                    },
+                )
+                // Local search results dropdown
+                if (searchResults.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    ) {
+                        LazyColumn {
+                            items(searchResults.size) { index ->
+                                val result = searchResults[index]
+                                TextButton(
+                                    onClick = {
+                                        scope.launch {
+                                            cameraPositionState.animate(
+                                                CameraUpdateFactory.newLatLngZoom(
+                                                    LatLng(result.centerLat, result.centerLng),
+                                                    17f,
+                                                )
+                                            )
+                                        }
+                                        viewModel.clearSearch()
+                                        showSearch = false
+                                        searchQuery = ""
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp),
+                                ) {
+                                    Text(
+                                        text = result.streetName,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
+                            }
+                        }
                     }
-                },
-            )
+                }
+            }
         } else {
             IconButton(
                 onClick = { showSearch = true },
@@ -663,6 +744,35 @@ fun StreetInfoSheet(
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
         ) {
             Text("Park Here")
+        }
+    }
+}
+
+@Composable
+fun OfflineBanner(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(32.dp),
+        color = Color(0xFFF57C00).copy(alpha = 0.9f),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "\u26A0\uFE0F",
+                style = MaterialTheme.typography.labelMedium,
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "Offline \u2013 Sweeping data available. Map tiles may be limited.",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+                maxLines = 1,
+            )
         }
     }
 }

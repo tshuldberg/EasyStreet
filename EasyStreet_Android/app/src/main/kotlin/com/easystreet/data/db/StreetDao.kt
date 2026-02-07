@@ -2,6 +2,7 @@ package com.easystreet.data.db
 
 import com.easystreet.domain.model.BoundingBox
 import com.easystreet.domain.model.LatLngPoint
+import com.easystreet.domain.model.StreetSearchResult
 import com.easystreet.domain.model.StreetSegment
 import com.easystreet.domain.model.SweepingRule
 import org.json.JSONArray
@@ -77,6 +78,40 @@ class StreetDao(private val db: StreetDatabase) {
                 dlat * dlat + dlng * dlng
             }
         }
+    }
+
+    fun searchStreetsByName(query: String, limit: Int = 20): List<StreetSearchResult> {
+        val results = mutableListOf<StreetSearchResult>()
+
+        val cursor = db.database.rawQuery(
+            """
+            SELECT street_name,
+                   AVG((latitude_min + latitude_max) / 2.0) AS avg_lat,
+                   AVG((longitude_min + longitude_max) / 2.0) AS avg_lng,
+                   COUNT(*) AS segment_count
+            FROM street_segments
+            WHERE street_name LIKE ?
+            GROUP BY street_name
+            ORDER BY street_name
+            LIMIT ?
+            """.trimIndent(),
+            arrayOf("%$query%", limit.toString()),
+        )
+
+        cursor.use {
+            while (it.moveToNext()) {
+                results.add(
+                    StreetSearchResult(
+                        streetName = it.getString(0),
+                        centerLat = it.getDouble(1),
+                        centerLng = it.getDouble(2),
+                        segmentCount = it.getInt(3),
+                    )
+                )
+            }
+        }
+
+        return results
     }
 
     private fun getRulesForSegment(segmentId: Long): List<SweepingRule> {

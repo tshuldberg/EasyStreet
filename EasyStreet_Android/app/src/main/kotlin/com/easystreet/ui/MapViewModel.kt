@@ -10,14 +10,17 @@ import com.easystreet.data.prefs.ParkingPreferences
 import com.easystreet.data.repository.ParkingRepository
 import com.easystreet.data.repository.StreetRepository
 import com.easystreet.domain.engine.SweepingRuleEngine
+import com.easystreet.data.network.ConnectivityObserver
 import com.easystreet.domain.model.StreetSegment
 import com.easystreet.domain.model.SweepingStatus
 import com.easystreet.notification.NotificationScheduler
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 
@@ -41,6 +44,33 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _dbError = MutableStateFlow<String?>(null)
     val dbError: StateFlow<String?> = _dbError.asStateFlow()
+
+    private val connectivityObserver = ConnectivityObserver(application)
+    val isOnline: StateFlow<Boolean> = connectivityObserver.isOnline
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), true)
+
+    private val _searchResults = MutableStateFlow<List<com.easystreet.domain.model.StreetSearchResult>>(emptyList())
+    val searchResults: StateFlow<List<com.easystreet.domain.model.StreetSearchResult>> = _searchResults.asStateFlow()
+
+    private var searchJob: Job? = null
+
+    fun searchStreets(query: String) {
+        searchJob?.cancel()
+        if (query.isBlank()) {
+            _searchResults.value = emptyList()
+            return
+        }
+        searchJob = viewModelScope.launch {
+            delay(200) // debounce
+            val results = streetRepo.searchStreets(query)
+            _searchResults.value = results
+        }
+    }
+
+    fun clearSearch() {
+        searchJob?.cancel()
+        _searchResults.value = emptyList()
+    }
 
     val notificationLeadMinutes: Int
         get() = parkingPrefs.notificationLeadMinutes
