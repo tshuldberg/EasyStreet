@@ -102,4 +102,57 @@ class SweepingRuleEngineStatusTests: XCTestCase {
         default: XCTFail("Expected .safe or .upcoming for non-matching week, got \(status)")
         }
     }
+
+    // MARK: - Additional Edge Cases
+
+    /// Midnight start time: sweep at 00:00, now is 23:00 day before → upcoming
+    func testMidnightStartTimeUpcoming() {
+        // March 1 (Sunday) at 23:00, rule is for Monday at 00:00
+        let segment = makeSegment(dayOfWeek: 2, startTime: "00:00", endTime: "02:00")
+        let now = makeDate(2026, 3, 1, 23, 0) // Sunday 11 PM
+        let status = engine.determineStatus(for: segment, at: now)
+        if case .upcoming = status { } else { XCTFail("Expected .upcoming for midnight sweep on next day, got \(status)") }
+    }
+
+    /// Status after sweep ends same day → safe
+    func testAfterSweepEndsSameDay() {
+        // Monday sweep 09:00-11:00, now is 15:00
+        let segment = makeSegment(dayOfWeek: 2, startTime: "09:00", endTime: "11:00")
+        let now = makeDate(2026, 3, 2, 15, 0)
+        let status = engine.determineStatus(for: segment, at: now)
+        if case .safe = status { } else { XCTFail("Expected .safe after sweep ended, got \(status)") }
+    }
+
+    /// Multiple rules same day — documents first(where:) limitation
+    /// Morning rule passed → returns .safe even though evening rule is upcoming
+    func testMultipleRulesSameDayFirstWhereLimit() {
+        let morningRule = SweepingRule(dayOfWeek: 2, startTime: "06:00", endTime: "08:00",
+                                       weeksOfMonth: [], applyOnHolidays: true)
+        let eveningRule = SweepingRule(dayOfWeek: 2, startTime: "18:00", endTime: "20:00",
+                                       weeksOfMonth: [], applyOnHolidays: true)
+        let segment = StreetSegment(id: "multi", streetName: "Multi St",
+                                     coordinates: [[37.78, -122.41]],
+                                     rules: [morningRule, eveningRule])
+        let now = makeDate(2026, 3, 2, 10, 0) // Monday 10 AM (morning passed, evening upcoming)
+        let status = engine.determineStatus(for: segment, at: now)
+        // Known limitation: first(where:) finds morning rule first, sweep passed → .safe
+        // Even though evening rule is upcoming. This test documents the behavior.
+        if case .safe = status {
+            // This is the known-limitation behavior — morning rule matched first, already passed
+        } else if case .today = status {
+            // If implementation improves to check all rules, this would be acceptable too
+        } else if case .imminent = status {
+            // Also acceptable if implementation improves
+        } else {
+            XCTFail("Expected .safe (known limitation) or .today/.imminent (if improved), got \(status)")
+        }
+    }
+
+    /// 59 minutes away → imminent
+    func test59MinutesAwayIsImminent() {
+        let segment = makeSegment(dayOfWeek: 2, startTime: "15:00", endTime: "17:00")
+        let now = makeDate(2026, 3, 2, 14, 1) // 59 minutes before 15:00
+        let status = engine.determineStatus(for: segment, at: now)
+        if case .imminent = status { } else { XCTFail("Expected .imminent for 59 minutes away, got \(status)") }
+    }
 }

@@ -144,7 +144,43 @@ struct StreetSegment: Codable, Identifiable {
         }
         return (earliestNextSweepDate, associatedRule)
     }
-    
+
+    /// Get the next sweep time including today's sweeps (unlike nextSweeping which starts from tomorrow).
+    /// Returns start time, end time, and the applicable rule.
+    func nextSweepIncludingToday(from referenceDate: Date = Date()) -> (start: Date?, end: Date?, rule: SweepingRule?) {
+        let calendar = Calendar.current
+
+        // First check today's rules
+        for rule in rules {
+            if rule.appliesTo(date: referenceDate) {
+                let startComponents = rule.startTime.split(separator: ":").map { Int($0) ?? 0 }
+                let endComponents = rule.endTime.split(separator: ":").map { Int($0) ?? 0 }
+                guard startComponents.count == 2, endComponents.count == 2 else { continue }
+
+                guard let startDateTime = calendar.date(bySettingHour: startComponents[0], minute: startComponents[1], second: 0, of: referenceDate),
+                      let endDateTime = calendar.date(bySettingHour: endComponents[0], minute: endComponents[1], second: 0, of: referenceDate) else { continue }
+
+                // Only return if the sweep hasn't fully ended yet
+                if endDateTime > referenceDate {
+                    return (start: startDateTime, end: endDateTime, rule: rule)
+                }
+            }
+        }
+
+        // Fall through to future dates using existing nextSweeping logic
+        let (nextDate, nextRule) = nextSweeping(from: referenceDate)
+        if let nextDate = nextDate, let nextRule = nextRule {
+            let endComponents = nextRule.endTime.split(separator: ":").map { Int($0) ?? 0 }
+            if endComponents.count == 2 {
+                let endDateTime = calendar.date(bySettingHour: endComponents[0], minute: endComponents[1], second: 0, of: nextDate)
+                return (start: nextDate, end: endDateTime, rule: nextRule)
+            }
+            return (start: nextDate, end: nil, rule: nextRule)
+        }
+
+        return (start: nil, end: nil, rule: nil)
+    }
+
     // Check if sweeping is scheduled for today
     func hasSweeperToday() -> Bool {
         let today = Date()
