@@ -6,7 +6,13 @@ import android.location.Geocoder
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.easystreet.domain.engine.HolidayCalculator
 import com.easystreet.domain.engine.SweepingRuleEngine
 import com.easystreet.domain.model.StreetSegment
 import com.easystreet.domain.model.SweepingStatus
@@ -27,6 +34,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
 import java.time.Duration
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -46,10 +54,19 @@ fun MapScreen(viewModel: MapViewModel = viewModel()) {
     val visibleSegments by viewModel.visibleSegments.collectAsState()
     val parkedCar by viewModel.parkingRepo.parkedCar.collectAsState()
     val sweepingStatus by viewModel.sweepingStatus.collectAsState()
+    val dbError by viewModel.dbError.collectAsState()
+    val isOnline by viewModel.isOnline.collectAsState()
+    val searchResults by viewModel.searchResults.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
     var showSearch by remember { mutableStateOf(false) }
     val selectedSegment by viewModel.selectedSegment.collectAsState()
+
+    // Disclaimer state
+    var showDisclaimer by remember { mutableStateOf(!DisclaimerManager.hasSeenDisclaimer(context)) }
+
+    // Notification settings state
+    var showNotificationSettings by remember { mutableStateOf(false) }
 
     // Location permission
     val hasLocationPermission = remember {
@@ -65,7 +82,7 @@ fun MapScreen(viewModel: MapViewModel = viewModel()) {
         hasLocationPermission.value = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
     }
 
-    // Notification permission launcher (Task 13 - API 33+)
+    // Notification permission launcher (API 33+)
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { _ ->
@@ -120,6 +137,45 @@ fun MapScreen(viewModel: MapViewModel = viewModel()) {
         }
     }
 
+    // Disclaimer dialog
+    if (showDisclaimer) {
+        AlertDialog(
+            onDismissRequest = { /* Require explicit dismissal */ },
+            title = { Text(DisclaimerManager.DISCLAIMER_TITLE) },
+            text = {
+                Column {
+                    Text(DisclaimerManager.DISCLAIMER_BODY)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Street data last updated: ${com.easystreet.BuildConfig.STREET_DATA_DATE}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    DisclaimerManager.markDisclaimerSeen(context)
+                    showDisclaimer = false
+                }) {
+                    Text("I Understand")
+                }
+            },
+        )
+    }
+
+    // Notification settings dialog
+    if (showNotificationSettings) {
+        NotificationSettingsDialog(
+            currentLeadMinutes = viewModel.notificationLeadMinutes,
+            onDismiss = { showNotificationSettings = false },
+            onSelected = { minutes ->
+                viewModel.updateNotificationLeadMinutes(minutes)
+                showNotificationSettings = false
+            },
+        )
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
@@ -132,36 +188,22 @@ fun MapScreen(viewModel: MapViewModel = viewModel()) {
                 zoomControlsEnabled = false,
             ),
         ) {
-            // Street overlays
-            val now = LocalDateTime.now()
+            // Street overlays with day-offset color system
+            val today = LocalDate.now()
             visibleSegments.forEach { segment ->
-                val status = SweepingRuleEngine.getStatus(segment.rules, segment.streetName, now)
-                val nextTime = SweepingRuleEngine.getNextSweepingTime(segment.rules, now)
-                val color = when (status) {
-                    is SweepingStatus.Imminent -> Color.Red
-                    is SweepingStatus.Today -> Color.Red
-                    is SweepingStatus.Upcoming -> {
-                        if (nextTime != null && Duration.between(now, nextTime).toHours() <= 48) {
-                            Color(0xFFFF9800) // Orange — within 48 hours
-                        } else {
-                            Color(0xFF4CAF50) // Green — more than 48 hours
-                        }
-                    }
-                    is SweepingStatus.Safe -> Color(0xFF4CAF50)
-                    is SweepingStatus.NoData -> Color.Gray
-                    is SweepingStatus.Unknown -> Color.Gray
-                }
+                val color = mapColorForSegment(segment, today)
 
                 Polyline(
                     points = segment.coordinates.map { LatLng(it.latitude, it.longitude) },
-                    color = color,
+                    color = color.copy(alpha = 0.85f),
                     width = 8f,
                     clickable = true,
+                    zIndex = 1f,
                     onClick = { viewModel.onStreetTapped(segment) },
                 )
             }
 
-            // Parked car marker with drag support (Task 12)
+            // Parked car marker with drag support
             parkedCar?.let { car ->
                 val markerState = rememberMarkerState(position = LatLng(car.latitude, car.longitude))
 
@@ -189,44 +231,115 @@ fun MapScreen(viewModel: MapViewModel = viewModel()) {
             }
         }
 
-        // Search bar
+        // Top-left: Info icon to re-show disclaimer
+        IconButton(
+            onClick = { showDisclaimer = true },
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp),
+        ) {
+            Icon(
+                Icons.Default.Info,
+                contentDescription = "Show disclaimer",
+                tint = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+
+        // Offline banner
+        if (!isOnline) {
+            OfflineBanner(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = if (showSearch) 80.dp else 56.dp),
+            )
+        }
+
+        // Search bar / search icon (top-right)
         if (showSearch) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
                     .align(Alignment.TopCenter),
-                placeholder = { Text("Search address...") },
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                ),
-                trailingIcon = {
-                    TextButton(onClick = {
-                        scope.launch {
-                            @Suppress("DEPRECATION")
-                            val geocoder = Geocoder(context, Locale.getDefault())
-                            @Suppress("DEPRECATION")
-                            val results = geocoder.getFromLocationName(searchQuery, 1)
-                            results?.firstOrNull()?.let { address ->
-                                cameraPositionState.animate(
-                                    CameraUpdateFactory.newLatLngZoom(
-                                        LatLng(address.latitude, address.longitude),
-                                        17f,
+            ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = {
+                        searchQuery = it
+                        viewModel.searchStreets(it)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = {
+                        Text(if (isOnline) "Search address..." else "Search SF streets (offline)...")
+                    },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                    trailingIcon = {
+                        TextButton(onClick = {
+                            scope.launch {
+                                val localResults = searchResults
+                                if (localResults.size == 1) {
+                                    cameraPositionState.animate(
+                                        CameraUpdateFactory.newLatLngZoom(
+                                            LatLng(localResults[0].centerLat, localResults[0].centerLng),
+                                            17f,
+                                        )
                                     )
-                                )
+                                } else if (localResults.isEmpty() && isOnline) {
+                                    searchAddress(context, searchQuery, cameraPositionState)
+                                }
+                                viewModel.clearSearch()
+                                showSearch = false
+                                searchQuery = ""
                             }
-                            showSearch = false
-                            searchQuery = ""
+                        }) {
+                            Text("Go")
                         }
-                    }) {
-                        Text("Go")
+                    },
+                )
+                // Local search results dropdown
+                if (searchResults.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    ) {
+                        LazyColumn {
+                            items(searchResults.size) { index ->
+                                val result = searchResults[index]
+                                TextButton(
+                                    onClick = {
+                                        scope.launch {
+                                            cameraPositionState.animate(
+                                                CameraUpdateFactory.newLatLngZoom(
+                                                    LatLng(result.centerLat, result.centerLng),
+                                                    17f,
+                                                )
+                                            )
+                                        }
+                                        viewModel.clearSearch()
+                                        showSearch = false
+                                        searchQuery = ""
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp),
+                                ) {
+                                    Text(
+                                        text = result.streetName,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
+                            }
+                        }
                     }
-                },
-            )
+                }
+            }
         } else {
             IconButton(
                 onClick = { showSearch = true },
@@ -235,6 +348,41 @@ fun MapScreen(viewModel: MapViewModel = viewModel()) {
                     .padding(16.dp),
             ) {
                 Text("\uD83D\uDD0D", style = MaterialTheme.typography.headlineSmall)
+            }
+        }
+
+        // Map legend (bottom-left)
+        MapLegend(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 8.dp, bottom = 96.dp),
+        )
+
+        // Attribution text (bottom of map)
+        Text(
+            text = DisclaimerManager.ATTRIBUTION_TEXT,
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.DarkGray,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 4.dp),
+        )
+
+        // DB error card
+        if (dbError != null) {
+            Card(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 64.dp, start = 16.dp, end = 16.dp)
+                    .fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+            ) {
+                Text(
+                    text = dbError ?: "",
+                    modifier = Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             }
         }
 
@@ -251,12 +399,13 @@ fun MapScreen(viewModel: MapViewModel = viewModel()) {
                     streetName = parkedCar!!.streetName,
                     status = sweepingStatus,
                     onClearParking = { viewModel.clearParking() },
+                    onSettingsClick = { showNotificationSettings = true },
                 )
             } else {
-                // "I Parked Here" button
+                // "I Parked Here" button — uses GPS location
                 Button(
                     onClick = {
-                        // Request notification permission on API 33+ (Task 13)
+                        // Request notification permission on API 33+
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                             if (ContextCompat.checkSelfPermission(
                                     context,
@@ -266,8 +415,29 @@ fun MapScreen(viewModel: MapViewModel = viewModel()) {
                                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                             }
                         }
-                        val center = cameraPositionState.position.target
-                        viewModel.parkCar(center.latitude, center.longitude)
+                        // Use GPS location if available, fall back to camera center
+                        if (hasLocationPermission.value) {
+                            val fusedClient = LocationServices.getFusedLocationProviderClient(context)
+                            try {
+                                fusedClient.lastLocation.addOnSuccessListener { location ->
+                                    if (location != null) {
+                                        viewModel.parkCar(location.latitude, location.longitude)
+                                    } else {
+                                        val center = cameraPositionState.position.target
+                                        viewModel.parkCar(center.latitude, center.longitude)
+                                    }
+                                }.addOnFailureListener {
+                                    val center = cameraPositionState.position.target
+                                    viewModel.parkCar(center.latitude, center.longitude)
+                                }
+                            } catch (_: SecurityException) {
+                                val center = cameraPositionState.position.target
+                                viewModel.parkCar(center.latitude, center.longitude)
+                            }
+                        } else {
+                            val center = cameraPositionState.position.target
+                            viewModel.parkCar(center.latitude, center.longitude)
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
@@ -307,11 +477,111 @@ fun MapScreen(viewModel: MapViewModel = viewModel()) {
     }
 }
 
+/**
+ * Determines the map overlay color for a street segment based on day offset,
+ * matching the iOS color system.
+ */
+private fun mapColorForSegment(segment: StreetSegment, today: LocalDate): Color {
+    if (segment.rules.isEmpty()) return Color.Gray
+
+    for (dayOffset in 0..3) {
+        val date = today.plusDays(dayOffset.toLong())
+        val isHoliday = HolidayCalculator.isHoliday(date)
+        val anyRuleApplies = segment.rules.any { it.appliesTo(date, isHoliday) }
+        if (anyRuleApplies) {
+            return when (dayOffset) {
+                0 -> Color.Red                  // Sweeping today
+                1 -> Color(0xFFFF9800)          // Sweeping tomorrow (Orange)
+                2, 3 -> Color(0xFFFFC107)       // Sweeping in 2-3 days (Yellow/Amber)
+                else -> Color(0xFF4CAF50)       // Safe (Green)
+            }
+        }
+    }
+
+    return Color(0xFF4CAF50) // Safe — no sweeping within 3 days
+}
+
+/**
+ * Search for an address and animate camera to it.
+ */
+private suspend fun searchAddress(
+    context: android.content.Context,
+    query: String,
+    cameraPositionState: CameraPositionState,
+) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val geocoder = Geocoder(context, Locale.getDefault())
+        geocoder.getFromLocationName(query, 1) { results ->
+            results.firstOrNull()?.let { address ->
+                // Note: This callback may not be on main thread, but CameraPositionState
+                // handles thread safety internally
+                kotlinx.coroutines.runBlocking {
+                    cameraPositionState.animate(
+                        CameraUpdateFactory.newLatLngZoom(
+                            LatLng(address.latitude, address.longitude),
+                            17f,
+                        )
+                    )
+                }
+            }
+        }
+    } else {
+        @Suppress("DEPRECATION")
+        val geocoder = Geocoder(context, Locale.getDefault())
+        @Suppress("DEPRECATION")
+        val results = geocoder.getFromLocationName(query, 1)
+        results?.firstOrNull()?.let { address ->
+            cameraPositionState.animate(
+                CameraUpdateFactory.newLatLngZoom(
+                    LatLng(address.latitude, address.longitude),
+                    17f,
+                )
+            )
+        }
+    }
+}
+
+@Composable
+fun MapLegend(modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+    ) {
+        Column(modifier = Modifier.padding(8.dp)) {
+            LegendItem(color = Color.Red, label = "Today")
+            LegendItem(color = Color(0xFFFF9800), label = "Tomorrow")
+            LegendItem(color = Color(0xFFFFC107), label = "2-3 Days")
+            LegendItem(color = Color(0xFF4CAF50), label = "Safe")
+            LegendItem(color = Color.Gray, label = "No Data")
+        }
+    }
+}
+
+@Composable
+private fun LegendItem(color: Color, label: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 2.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(12.dp)
+                .background(color, shape = CircleShape),
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(text = label, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
 @Composable
 fun ParkingInfoCard(
     streetName: String,
     status: SweepingStatus,
     onClearParking: () -> Unit,
+    onSettingsClick: () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -323,10 +593,23 @@ fun ParkingInfoCard(
         Column(
             modifier = Modifier.padding(16.dp),
         ) {
-            Text(
-                text = streetName,
-                style = MaterialTheme.typography.titleMedium,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = streetName,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = onSettingsClick) {
+                    Icon(
+                        Icons.Default.Settings,
+                        contentDescription = "Notification settings",
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -335,6 +618,9 @@ fun ParkingInfoCard(
                 is SweepingStatus.Today -> {
                     val timeStr = status.time.format(DateTimeFormatter.ofPattern("h:mm a"))
                     "Sweeping today at $timeStr" to Color(0xFFFF9800)
+                }
+                is SweepingStatus.ActiveNow -> {
+                    "Sweeping in progress! Move your car!" to Color.Red
                 }
                 is SweepingStatus.Imminent -> {
                     val timeStr = status.time.format(DateTimeFormatter.ofPattern("h:mm a"))
@@ -392,6 +678,9 @@ fun StreetInfoSheet(
         if (nextTime != null) {
             val hoursUntil = Duration.between(now, nextTime).toHours()
             val (label, labelColor) = when {
+                status is SweepingStatus.ActiveNow -> {
+                    "Sweeping in progress! Move your car!" to Color.Red
+                }
                 status is SweepingStatus.Imminent || status is SweepingStatus.Today -> {
                     val t = nextTime.format(DateTimeFormatter.ofPattern("h:mm a"))
                     "Sweeping today at $t" to Color.Red
@@ -457,4 +746,83 @@ fun StreetInfoSheet(
             Text("Park Here")
         }
     }
+}
+
+@Composable
+fun OfflineBanner(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(32.dp),
+        color = Color(0xFFF57C00).copy(alpha = 0.9f),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "\u26A0\uFE0F",
+                style = MaterialTheme.typography.labelMedium,
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "Offline \u2013 Sweeping data available. Map tiles may be limited.",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+@Composable
+fun NotificationSettingsDialog(
+    currentLeadMinutes: Int,
+    onDismiss: () -> Unit,
+    onSelected: (Int) -> Unit,
+) {
+    val options = listOf(15, 30, 60, 120)
+    val labels = listOf("15 minutes", "30 minutes", "1 hour", "2 hours")
+    var selected by remember { mutableIntStateOf(currentLeadMinutes) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Notification Timing") },
+        text = {
+            Column {
+                Text(
+                    "How far in advance should we notify you?",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                options.forEachIndexed { index, minutes ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                    ) {
+                        RadioButton(
+                            selected = selected == minutes,
+                            onClick = { selected = minutes },
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(labels[index])
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSelected(selected) }) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+    )
 }

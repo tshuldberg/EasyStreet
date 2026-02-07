@@ -25,8 +25,9 @@ object SweepingRuleEngine {
 
             if (at >= sweepEnd) continue
 
+            // Sweeping is actively in progress
             if (at >= sweepStart) {
-                return SweepingStatus.Imminent(sweepStart, streetName)
+                return SweepingStatus.ActiveNow(sweepStart, streetName)
             }
 
             val timeUntil = Duration.between(at, sweepStart)
@@ -61,7 +62,7 @@ object SweepingRuleEngine {
                 continue
             }
 
-            for (dayOffset in 1L..60L) {
+            for (dayOffset in 1L..180L) {
                 val date = today.plusDays(dayOffset)
                 if (rule.appliesTo(date, HolidayCalculator.isHoliday(date))) {
                     val sweepTime = date.atTime(rule.startTime)

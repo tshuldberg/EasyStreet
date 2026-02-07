@@ -15,7 +15,7 @@ class SweepingRuleTest {
             startTime = LocalTime.of(9, 0),
             endTime = LocalTime.of(11, 0),
             weekOfMonth = 0,
-            holidaysObserved = false,
+            appliesToHolidays = false,
         )
         assertTrue(rule.appliesTo(LocalDate.of(2026, 2, 9)))
     }
@@ -27,7 +27,7 @@ class SweepingRuleTest {
             startTime = LocalTime.of(9, 0),
             endTime = LocalTime.of(11, 0),
             weekOfMonth = 0,
-            holidaysObserved = false,
+            appliesToHolidays = false,
         )
         assertFalse(rule.appliesTo(LocalDate.of(2026, 2, 10)))
     }
@@ -39,7 +39,7 @@ class SweepingRuleTest {
             startTime = LocalTime.of(9, 0),
             endTime = LocalTime.of(11, 0),
             weekOfMonth = 1,
-            holidaysObserved = false,
+            appliesToHolidays = false,
         )
         assertTrue(rule.appliesTo(LocalDate.of(2026, 2, 2)))
         assertFalse(rule.appliesTo(LocalDate.of(2026, 2, 9)))

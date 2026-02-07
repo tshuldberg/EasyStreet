@@ -121,4 +121,51 @@ class MapColorStatusTests: XCTestCase {
         XCTAssertEqual(result, .green,
                        "Rule for week 2 should not apply on week 1 Monday, resulting in green")
     }
+
+    // MARK: - Additional Edge Cases
+
+    /// Thursday rule on Monday → yellow (exactly 3 days boundary)
+    func testYellowExactly3DayBoundary() {
+        let monday = makeDate(2026, 3, 2)
+        let rule = SweepingRule(dayOfWeek: 5, startTime: "09:00", endTime: "11:00",
+                                weeksOfMonth: [], applyOnHolidays: true)
+        let segment = StreetSegment(id: "t", streetName: "T",
+                                     coordinates: [[37.78, -122.41]], rules: [rule])
+        let result = segment.mapColorStatus(today: monday, upcomingDates: upcomingDates(from: monday))
+        XCTAssertEqual(result, .yellow, "Thursday on Monday is exactly 3 days → yellow")
+    }
+
+    /// No rules → green
+    func testNoRulesReturnsGreen() {
+        let monday = makeDate(2026, 3, 2)
+        let segment = StreetSegment(id: "t", streetName: "T",
+                                     coordinates: [[37.78, -122.41]], rules: [])
+        let result = segment.mapColorStatus(today: monday, upcomingDates: upcomingDates(from: monday))
+        XCTAssertEqual(result, .green, "Segment with no rules should always be green")
+    }
+
+    /// Red overrides yellow when both rules exist on segment
+    func testRedOverridesYellow() {
+        let monday = makeDate(2026, 3, 2)
+        let todayRule = SweepingRule(dayOfWeek: 2, startTime: "09:00", endTime: "11:00",
+                                      weeksOfMonth: [], applyOnHolidays: true)
+        let in3DaysRule = SweepingRule(dayOfWeek: 5, startTime: "09:00", endTime: "11:00",
+                                        weeksOfMonth: [], applyOnHolidays: true)
+        let segment = StreetSegment(id: "t", streetName: "T",
+                                     coordinates: [[37.78, -122.41]],
+                                     rules: [in3DaysRule, todayRule]) // yellow rule first in array
+        let result = segment.mapColorStatus(today: monday, upcomingDates: upcomingDates(from: monday))
+        XCTAssertEqual(result, .red, "Red should override yellow regardless of rule array order")
+    }
+
+    /// End-of-month: March 31 (Tuesday) → April 1 (Wednesday) transition
+    func testEndOfMonthTransition() {
+        let march31 = makeDate(2026, 3, 31) // Tuesday weekday=3
+        let aprilRule = SweepingRule(dayOfWeek: 4, startTime: "09:00", endTime: "11:00",
+                                      weeksOfMonth: [], applyOnHolidays: true) // Wednesday = April 1
+        let segment = StreetSegment(id: "t", streetName: "T",
+                                     coordinates: [[37.78, -122.41]], rules: [aprilRule])
+        let result = segment.mapColorStatus(today: march31, upcomingDates: upcomingDates(from: march31))
+        XCTAssertEqual(result, .orange, "Wednesday on Tuesday March 31 should be orange (crosses month boundary)")
+    }
 }

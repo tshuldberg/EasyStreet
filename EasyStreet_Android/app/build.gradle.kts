@@ -29,6 +29,7 @@ android {
         }
 
         manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")
+        buildConfigField("String", "STREET_DATA_DATE", "\"2026-01-06\"")
     }
 
     buildTypes {
@@ -49,6 +50,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.8" // Check for compatibility with your Kotlin version

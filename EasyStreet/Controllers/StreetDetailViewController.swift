@@ -17,6 +17,7 @@ class StreetDetailViewController: UIViewController {
 
     let segment: StreetSegment
     weak var delegate: StreetDetailDelegate?
+    private var countdownTimer: Timer?
 
     // MARK: - UI Elements
 
@@ -46,6 +47,15 @@ class StreetDetailViewController: UIViewController {
         label.font = UIFont.systemFont(ofSize: 15)
         label.numberOfLines = 0
         label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+
+    let countdownLabel: UILabel = {
+        let label = UILabel()
+        label.font = UIFont.monospacedDigitSystemFont(ofSize: 15, weight: .medium)
+        label.numberOfLines = 1
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.isHidden = true
         return label
     }()
 
@@ -109,6 +119,16 @@ class StreetDetailViewController: UIViewController {
         configureContent()
     }
 
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        countdownTimer?.invalidate()
+        countdownTimer = nil
+    }
+
+    deinit {
+        countdownTimer?.invalidate()
+    }
+
     // MARK: - Layout
 
     private func setupLayout() {
@@ -119,6 +139,7 @@ class StreetDetailViewController: UIViewController {
 
         contentView.addSubview(streetNameLabel)
         contentView.addSubview(nextSweepingLabel)
+        contentView.addSubview(countdownLabel)
         contentView.addSubview(divider)
         contentView.addSubview(scheduleHeaderLabel)
         contentView.addSubview(rulesStackView)
@@ -150,8 +171,13 @@ class StreetDetailViewController: UIViewController {
             nextSweepingLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: padding),
             nextSweepingLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -padding),
 
+            // Countdown label
+            countdownLabel.topAnchor.constraint(equalTo: nextSweepingLabel.bottomAnchor, constant: 4),
+            countdownLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: padding),
+            countdownLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -padding),
+
             // Divider
-            divider.topAnchor.constraint(equalTo: nextSweepingLabel.bottomAnchor, constant: padding),
+            divider.topAnchor.constraint(equalTo: countdownLabel.bottomAnchor, constant: padding),
             divider.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: padding),
             divider.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -padding),
             divider.heightAnchor.constraint(equalToConstant: 1),
@@ -186,6 +212,8 @@ class StreetDetailViewController: UIViewController {
 
         // Rules list
         configureRulesList()
+
+        startCountdownTimer()
     }
 
     private func configureNextSweepingLabel() {
@@ -259,6 +287,61 @@ class StreetDetailViewController: UIViewController {
             ruleLabel.numberOfLines = 0
             ruleLabel.text = "\(rule.dayName)  \(rule.formattedTimeRange)  (\(rule.weeksDescription))"
             rulesStackView.addArrangedSubview(ruleLabel)
+        }
+    }
+
+    // MARK: - Countdown Timer
+
+    private func startCountdownTimer() {
+        updateCountdown()
+        scheduleTimer()
+    }
+
+    private func scheduleTimer() {
+        countdownTimer?.invalidate()
+        let sweep = segment.nextSweepIncludingToday(from: Date())
+        guard let start = sweep.start else { return }
+        let interval = start.timeIntervalSince(Date())
+        let timerInterval: TimeInterval = interval < 3600 && interval > 0 ? 1.0 : 60.0
+        countdownTimer = Timer.scheduledTimer(withTimeInterval: timerInterval, repeats: true) { [weak self] _ in
+            self?.updateCountdown()
+        }
+    }
+
+    private func updateCountdown() {
+        let sweep = segment.nextSweepIncludingToday(from: Date())
+        guard let start = sweep.start else {
+            countdownLabel.isHidden = true
+            return
+        }
+
+        let interval = start.timeIntervalSince(Date())
+        let sweepDuration: TimeInterval
+        if let end = sweep.end {
+            sweepDuration = end.timeIntervalSince(start)
+        } else {
+            sweepDuration = 0
+        }
+
+        let text = CountdownFormatter.format(interval: interval, sweepDuration: sweepDuration)
+        countdownLabel.text = text
+        countdownLabel.isHidden = false
+
+        // Color coding
+        if text.contains("in progress") || text.contains("completed") {
+            countdownLabel.textColor = .systemRed
+        } else if interval < 3600 {
+            countdownLabel.textColor = .systemRed
+        } else if interval < 86400 {
+            countdownLabel.textColor = .systemOrange
+        } else {
+            countdownLabel.textColor = .label
+        }
+
+        // Switch timer frequency if we crossed the 1-hour boundary
+        let currentFrequency: TimeInterval = interval < 3600 && interval > 0 ? 1.0 : 60.0
+        if let timer = countdownTimer, abs(timer.timeInterval - currentFrequency) > 0.1 {
+            scheduleTimer()
         }
     }
 

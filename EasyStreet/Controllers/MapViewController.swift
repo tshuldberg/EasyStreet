@@ -12,22 +12,92 @@ class MapViewController: UIViewController {
         return map
     }()
 
+    private let parkingCard = ParkingCardView()
+
+    // MARK: - Toolbar Buttons
+
+    private let legendButton = MapViewController.makeToolbarButton(systemName: "paintpalette.fill")
+    private let searchButton = MapViewController.makeToolbarButton(systemName: "magnifyingglass")
+    private let myLocationButton = MapViewController.makeToolbarButton(systemName: "location.fill")
+    private let myCarButton = MapViewController.makeToolbarButton(systemName: "car.fill")
+
+    // MARK: - Legend Popup
+
+    private let legendPopup: UIView = {
+        let view = UIView()
+        view.backgroundColor = UIColor.systemBackground.withAlphaComponent(0.95)
+        view.layer.cornerRadius = 12
+        view.layer.shadowColor = UIColor.black.cgColor
+        view.layer.shadowOpacity = 0.15
+        view.layer.shadowOffset = CGSize(width: 0, height: 2)
+        view.layer.shadowRadius = 8
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.alpha = 0
+        view.isHidden = true
+        return view
+    }()
+
+    // MARK: - Search Popup
+
+    private let searchPopupContainer: UIView = {
+        let view = UIView()
+        view.backgroundColor = UIColor.systemBackground.withAlphaComponent(0.95)
+        view.layer.cornerRadius = 12
+        view.layer.shadowColor = UIColor.black.cgColor
+        view.layer.shadowOpacity = 0.15
+        view.layer.shadowOffset = CGSize(width: 0, height: 2)
+        view.layer.shadowRadius = 8
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.alpha = 0
+        view.isHidden = true
+        return view
+    }()
+
     private let searchBar: UISearchBar = {
         let searchBar = UISearchBar()
         searchBar.placeholder = "Search address"
+        searchBar.searchBarStyle = .minimal
         searchBar.translatesAutoresizingMaskIntoConstraints = false
         return searchBar
     }()
 
-    private let parkingCard = ParkingCardView()
-
-    private let legendView: UIView = {
+    // Dismiss overlay for popups
+    private let popupDismissOverlay: UIView = {
         let view = UIView()
-        view.backgroundColor = UIColor.systemBackground.withAlphaComponent(0.9)
-        view.layer.cornerRadius = 8
+        view.backgroundColor = .clear
         view.translatesAutoresizingMaskIntoConstraints = false
+        view.isHidden = true
         return view
     }()
+
+    // Right-side button stack
+    private let rightButtonStack: UIStackView = {
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.spacing = 10
+        stack.alignment = .center
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        return stack
+    }()
+
+    private static func makeToolbarButton(systemName: String) -> UIButton {
+        let button = UIButton(type: .system)
+        let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+        button.setImage(UIImage(systemName: systemName, withConfiguration: config), for: .normal)
+        button.backgroundColor = .systemBackground
+        button.tintColor = .systemBlue
+        button.layer.cornerRadius = 20
+        button.layer.shadowColor = UIColor.black.cgColor
+        button.layer.shadowOpacity = 0.15
+        button.layer.shadowOffset = CGSize(width: 0, height: 1)
+        button.layer.shadowRadius = 4
+        button.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: 40),
+            button.heightAnchor.constraint(equalToConstant: 40)
+        ])
+        return button
+    }
 
     // MARK: - Properties
 
@@ -44,6 +114,11 @@ class MapViewController: UIViewController {
     private var overlayUpdateTimer: Timer?
     private var lastOverlayUpdate: Date?
     private var rendererLogCount = 0
+    private let offlineBanner = OfflineBannerView()
+    private let searchResultsView = SearchResultsView()
+    private var searchDebounceTimer: Timer?
+    private var isLegendPopupVisible = false
+    private var isSearchPopupVisible = false
 
     // MARK: - Lifecycle
 
@@ -55,8 +130,9 @@ class MapViewController: UIViewController {
 
         setupViews()
         setupMapView()
-        setupSearchBar()
-        setupLegendView()
+        setupToolbarButtons()
+        setupLegendPopup()
+        setupSearchPopup()
         setupLocationManager()
 
         parkingCard.delegate = self
@@ -72,6 +148,13 @@ class MapViewController: UIViewController {
             self,
             selector: #selector(parkedCarStatusChanged),
             name: .parkedCarStatusDidChange,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(connectivityChanged),
+            name: .connectivityDidChange,
             object: nil
         )
 
@@ -114,9 +197,25 @@ class MapViewController: UIViewController {
 
     private func setupViews() {
         view.addSubview(mapView)
-        view.addSubview(searchBar)
+        view.addSubview(offlineBanner)
         view.addSubview(parkingCard)
-        view.addSubview(legendView)
+
+        // Toolbar buttons
+        view.addSubview(legendButton)
+        view.addSubview(searchButton)
+        view.addSubview(rightButtonStack)
+
+        // Popup dismiss overlay (behind popups, catches outside taps)
+        view.addSubview(popupDismissOverlay)
+
+        // Popups (above dismiss overlay)
+        view.addSubview(legendPopup)
+        view.addSubview(searchPopupContainer)
+
+        // Right button stack
+        rightButtonStack.addArrangedSubview(myLocationButton)
+        rightButtonStack.addArrangedSubview(myCarButton)
+        myCarButton.isHidden = true // Only shown when car is parked
 
         NSLayoutConstraint.activate([
             // Map view takes the full screen
@@ -125,27 +224,41 @@ class MapViewController: UIViewController {
             mapView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             mapView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            // Search bar at top
-            searchBar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            searchBar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
-            searchBar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
+            // Offline banner at top of safe area
+            offlineBanner.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            offlineBanner.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            offlineBanner.trailingAnchor.constraint(equalTo: view.trailingAnchor),
 
             // Parking card at bottom
             parkingCard.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
             parkingCard.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             parkingCard.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
 
-            // Legend view above parking card
-            legendView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            legendView.bottomAnchor.constraint(equalTo: parkingCard.topAnchor, constant: -12),
-            legendView.widthAnchor.constraint(equalToConstant: 120),
-            legendView.heightAnchor.constraint(equalToConstant: 120)
+            // Legend button - bottom left above parking card
+            legendButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            legendButton.bottomAnchor.constraint(equalTo: parkingCard.topAnchor, constant: -12),
+
+            // Search button - top right
+            searchButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            searchButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+
+            // Right button stack - right side, above parking card
+            rightButtonStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            rightButtonStack.bottomAnchor.constraint(equalTo: parkingCard.topAnchor, constant: -12),
+
+            // Popup dismiss overlay - full screen
+            popupDismissOverlay.topAnchor.constraint(equalTo: view.topAnchor),
+            popupDismissOverlay.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            popupDismissOverlay.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            popupDismissOverlay.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
+
+        searchResultsView.delegate = self
 
         // Start in not-parked state
         parkingCard.configure(for: .notParked)
 
-        // Attribution label (Task 7)
+        // Attribution label
         let attributionLabel = UILabel()
         attributionLabel.text = DisclaimerManager.attributionText
         attributionLabel.font = UIFont.systemFont(ofSize: 9)
@@ -180,66 +293,100 @@ class MapViewController: UIViewController {
         mapView.addGestureRecognizer(tapGesture)
     }
 
-    private func setupSearchBar() {
-        searchBar.delegate = self
+    private func setupToolbarButtons() {
+        legendButton.addTarget(self, action: #selector(legendButtonTapped), for: .touchUpInside)
+        searchButton.addTarget(self, action: #selector(searchButtonTapped), for: .touchUpInside)
+        myLocationButton.addTarget(self, action: #selector(myLocationButtonTapped), for: .touchUpInside)
+        myCarButton.addTarget(self, action: #selector(myCarButtonTapped), for: .touchUpInside)
+
+        let dismissTap = UITapGestureRecognizer(target: self, action: #selector(dismissPopups))
+        popupDismissOverlay.addGestureRecognizer(dismissTap)
     }
 
-    private func setupLegendView() {
-        // Create a stack view for legend items
+    private func setupLegendPopup() {
+        let titleLabel = UILabel()
+        titleLabel.text = "Map Legend"
+        titleLabel.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+
         let stackView = UIStackView()
         stackView.axis = .vertical
-        stackView.distribution = .fillEqually
-        stackView.spacing = 8
+        stackView.spacing = 10
         stackView.translatesAutoresizingMaskIntoConstraints = false
 
-        legendView.addSubview(stackView)
+        let items: [(UIColor, String)] = [
+            (.systemRed, "Sweeping Today"),
+            (.systemOrange, "Sweeping Tomorrow"),
+            (.systemYellow, "Sweeping in 2-3 Days"),
+            (.systemGreen, "Safe to Park")
+        ]
+
+        for (color, text) in items {
+            let row = UIStackView()
+            row.axis = .horizontal
+            row.spacing = 8
+            row.alignment = .center
+
+            let dot = UIView()
+            dot.backgroundColor = color
+            dot.layer.cornerRadius = 6
+            dot.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                dot.widthAnchor.constraint(equalToConstant: 12),
+                dot.heightAnchor.constraint(equalToConstant: 12)
+            ])
+
+            let label = UILabel()
+            label.text = text
+            label.font = UIFont.systemFont(ofSize: 13)
+
+            row.addArrangedSubview(dot)
+            row.addArrangedSubview(label)
+            stackView.addArrangedSubview(row)
+        }
+
+        legendPopup.addSubview(titleLabel)
+        legendPopup.addSubview(stackView)
 
         NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: legendView.topAnchor, constant: 8),
-            stackView.leadingAnchor.constraint(equalTo: legendView.leadingAnchor, constant: 8),
-            stackView.trailingAnchor.constraint(equalTo: legendView.trailingAnchor, constant: -8),
-            stackView.bottomAnchor.constraint(equalTo: legendView.bottomAnchor, constant: -8)
+            legendPopup.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            legendPopup.bottomAnchor.constraint(equalTo: legendButton.topAnchor, constant: -8),
+            legendPopup.widthAnchor.constraint(equalToConstant: 180),
+
+            titleLabel.topAnchor.constraint(equalTo: legendPopup.topAnchor, constant: 12),
+            titleLabel.leadingAnchor.constraint(equalTo: legendPopup.leadingAnchor, constant: 14),
+            titleLabel.trailingAnchor.constraint(equalTo: legendPopup.trailingAnchor, constant: -14),
+
+            stackView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
+            stackView.leadingAnchor.constraint(equalTo: legendPopup.leadingAnchor, constant: 14),
+            stackView.trailingAnchor.constraint(equalTo: legendPopup.trailingAnchor, constant: -14),
+            stackView.bottomAnchor.constraint(equalTo: legendPopup.bottomAnchor, constant: -12)
         ])
-
-        // Add legend items
-        let redItem = createLegendItem(color: .systemRed, text: "Today")
-        let orangeItem = createLegendItem(color: .systemOrange, text: "Tomorrow")
-        let yellowItem = createLegendItem(color: .systemYellow, text: "2-3 Days")
-        let greenItem = createLegendItem(color: .systemGreen, text: "Safe")
-
-        stackView.addArrangedSubview(redItem)
-        stackView.addArrangedSubview(orangeItem)
-        stackView.addArrangedSubview(yellowItem)
-        stackView.addArrangedSubview(greenItem)
     }
 
-    private func createLegendItem(color: UIColor, text: String) -> UIView {
-        let container = UIView()
+    private func setupSearchPopup() {
+        searchBar.delegate = self
 
-        let colorView = UIView()
-        colorView.backgroundColor = color
-        colorView.translatesAutoresizingMaskIntoConstraints = false
-
-        let label = UILabel()
-        label.text = text
-        label.font = UIFont.systemFont(ofSize: 10)
-        label.translatesAutoresizingMaskIntoConstraints = false
-
-        container.addSubview(colorView)
-        container.addSubview(label)
+        searchPopupContainer.addSubview(searchBar)
+        searchPopupContainer.addSubview(searchResultsView)
 
         NSLayoutConstraint.activate([
-            colorView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            colorView.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            colorView.widthAnchor.constraint(equalToConstant: 10),
-            colorView.heightAnchor.constraint(equalToConstant: 10),
+            searchPopupContainer.topAnchor.constraint(equalTo: searchButton.bottomAnchor, constant: 8),
+            searchPopupContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            searchPopupContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
 
-            label.leadingAnchor.constraint(equalTo: colorView.trailingAnchor, constant: 4),
-            label.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            label.trailingAnchor.constraint(equalTo: container.trailingAnchor)
+            searchBar.topAnchor.constraint(equalTo: searchPopupContainer.topAnchor, constant: 4),
+            searchBar.leadingAnchor.constraint(equalTo: searchPopupContainer.leadingAnchor, constant: 4),
+            searchBar.trailingAnchor.constraint(equalTo: searchPopupContainer.trailingAnchor, constant: -4),
+
+            searchResultsView.topAnchor.constraint(equalTo: searchBar.bottomAnchor),
+            searchResultsView.leadingAnchor.constraint(equalTo: searchPopupContainer.leadingAnchor, constant: 4),
+            searchResultsView.trailingAnchor.constraint(equalTo: searchPopupContainer.trailingAnchor, constant: -4),
+            searchResultsView.heightAnchor.constraint(lessThanOrEqualToConstant: 200),
+            searchResultsView.bottomAnchor.constraint(lessThanOrEqualTo: searchPopupContainer.bottomAnchor, constant: -4),
+
+            searchBar.bottomAnchor.constraint(lessThanOrEqualTo: searchPopupContainer.bottomAnchor, constant: -4)
         ])
-
-        return container
     }
 
     private func setupLocationManager() {
@@ -366,6 +513,7 @@ class MapViewController: UIViewController {
             // Check sweeping status for parked location
             checkSweepingStatusForParkedCar()
         }
+        updateCarButtonVisibility()
     }
 
     private func addParkedCarAnnotation(at location: CLLocationCoordinate2D) {
@@ -466,6 +614,91 @@ class MapViewController: UIViewController {
         return formatter.string(from: date)
     }
 
+    // MARK: - Toolbar Actions
+
+    @objc private func legendButtonTapped() {
+        if isLegendPopupVisible {
+            dismissPopups()
+        } else {
+            dismissPopups()
+            showLegendPopup()
+        }
+    }
+
+    @objc private func searchButtonTapped() {
+        if isSearchPopupVisible {
+            dismissPopups()
+        } else {
+            dismissPopups()
+            showSearchPopup()
+        }
+    }
+
+    @objc private func myLocationButtonTapped() {
+        guard let location = currentLocation else {
+            // Request a fresh location fix
+            locationManager.startUpdatingLocation()
+            return
+        }
+        let region = MKCoordinateRegion(center: location,
+                                        span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005))
+        mapView.setRegion(region, animated: true)
+    }
+
+    @objc private func myCarButtonTapped() {
+        guard let annotation = parkedCarAnnotation else { return }
+        let region = MKCoordinateRegion(center: annotation.coordinate,
+                                        span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005))
+        mapView.setRegion(region, animated: true)
+    }
+
+    @objc private func dismissPopups() {
+        if isLegendPopupVisible {
+            isLegendPopupVisible = false
+            UIView.animate(withDuration: 0.2, animations: {
+                self.legendPopup.alpha = 0
+            }, completion: { _ in
+                self.legendPopup.isHidden = true
+            })
+        }
+        if isSearchPopupVisible {
+            isSearchPopupVisible = false
+            searchBar.resignFirstResponder()
+            searchResultsView.clear()
+            UIView.animate(withDuration: 0.2, animations: {
+                self.searchPopupContainer.alpha = 0
+            }, completion: { _ in
+                self.searchPopupContainer.isHidden = true
+            })
+        }
+        popupDismissOverlay.isHidden = true
+    }
+
+    private func showLegendPopup() {
+        isLegendPopupVisible = true
+        popupDismissOverlay.isHidden = false
+        legendPopup.isHidden = false
+        legendPopup.alpha = 0
+        UIView.animate(withDuration: 0.2) {
+            self.legendPopup.alpha = 1
+        }
+    }
+
+    private func showSearchPopup() {
+        isSearchPopupVisible = true
+        popupDismissOverlay.isHidden = false
+        searchPopupContainer.isHidden = false
+        searchPopupContainer.alpha = 0
+        UIView.animate(withDuration: 0.2) {
+            self.searchPopupContainer.alpha = 1
+        }
+        searchBar.becomeFirstResponder()
+    }
+
+    private func updateCarButtonVisibility() {
+        myCarButton.isHidden = !parkingRepo.isCarParked
+    }
+
     // MARK: - Action Handlers
 
     @objc private func parkButtonTapped() {
@@ -479,6 +712,7 @@ class MapViewController: UIViewController {
             self?.parkingRepo.parkCar(at: location, streetName: streetName)
             self?.addParkedCarAnnotation(at: location)
             self?.checkSweepingStatusForParkedCar()
+            self?.updateCarButtonVisibility()
         }
     }
 
@@ -492,8 +726,9 @@ class MapViewController: UIViewController {
             parkedCarAnnotation = nil
         }
 
-        // Update card
+        // Update card and car button
         parkingCard.configure(for: .notParked)
+        updateCarButtonVisibility()
     }
 
     @objc private func parkedCarStatusChanged() {
@@ -512,6 +747,7 @@ class MapViewController: UIViewController {
             }
             parkingCard.configure(for: .notParked)
         }
+        updateCarButtonVisibility()
     }
 
     @objc private func settingsTapped() {
@@ -645,10 +881,23 @@ class MapViewController: UIViewController {
             completion(segment.streetName)
             return
         }
+        // Offline: skip network geocoding
+        guard ConnectivityMonitor.shared.isConnected else {
+            completion("Unknown Street")
+            return
+        }
         // Fallback to reverse geocoding
         let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         CLGeocoder().reverseGeocodeLocation(location) { placemarks, _ in
             completion(placemarks?.first?.thoroughfare ?? "Unknown Street")
+        }
+    }
+
+    @objc private func connectivityChanged() {
+        if ConnectivityMonitor.shared.isConnected {
+            offlineBanner.hide()
+        } else {
+            offlineBanner.show()
         }
     }
 
@@ -657,9 +906,13 @@ class MapViewController: UIViewController {
     }
 
     private func showDisclaimer(isFirstLaunch: Bool) {
+        var message = DisclaimerManager.disclaimerBody
+        if let buildDate = streetRepo.dataBuildDate {
+            message += "\n\nStreet data last updated: \(buildDate)"
+        }
         let alert = UIAlertController(
             title: DisclaimerManager.disclaimerTitle,
-            message: DisclaimerManager.disclaimerBody,
+            message: message,
             preferredStyle: .alert
         )
         if isFirstLaunch {
@@ -781,34 +1034,62 @@ extension MapViewController: MKMapViewDelegate {
 // MARK: - UISearchBarDelegate
 
 extension MapViewController: UISearchBarDelegate {
-    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
-        searchBar.resignFirstResponder()
-
-        guard let searchText = searchBar.text, !searchText.isEmpty else {
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        searchDebounceTimer?.invalidate()
+        guard !searchText.isEmpty else {
+            searchResultsView.clear()
             return
         }
-
-        // Geocode the address
-        let geocoder = CLGeocoder()
-        geocoder.geocodeAddressString(searchText) { [weak self] placemarks, error in
+        searchDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: false) { [weak self] _ in
             guard let self = self else { return }
-
-            if let error = error {
-                self.showAlert(title: "Geocoding Error", message: error.localizedDescription)
-                return
-            }
-
-            guard let placemark = placemarks?.first,
-                  let location = placemark.location?.coordinate else {
-                self.showAlert(title: "Location Not Found", message: "Could not find the address.")
-                return
-            }
-
-            // Center map on the location
-            let region = MKCoordinateRegion(center: location,
-                                            span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
-            self.mapView.setRegion(region, animated: true)
+            let results = self.streetRepo.searchStreets(query: searchText)
+            self.searchResultsView.update(with: results)
         }
+    }
+
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        guard let searchText = searchBar.text, !searchText.isEmpty else { return }
+
+        // Try local search first
+        let localResults = streetRepo.searchStreets(query: searchText)
+
+        if localResults.count == 1 {
+            // Single match: navigate directly and close popup
+            dismissPopups()
+            let result = localResults[0]
+            let region = MKCoordinateRegion(center: result.coordinate,
+                                            span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
+            mapView.setRegion(region, animated: true)
+        } else if localResults.count > 1 {
+            // Multiple matches: show dropdown
+            searchResultsView.update(with: localResults)
+        } else if ConnectivityMonitor.shared.isConnected {
+            // No local results, online: fall back to geocoder
+            let geocoder = CLGeocoder()
+            geocoder.geocodeAddressString(searchText) { [weak self] placemarks, error in
+                guard let self = self else { return }
+                if let error = error {
+                    self.showAlert(title: "Search Error", message: error.localizedDescription)
+                    return
+                }
+                guard let placemark = placemarks?.first,
+                      let location = placemark.location?.coordinate else {
+                    self.showAlert(title: "Not Found", message: "Could not find that address.")
+                    return
+                }
+                self.dismissPopups()
+                let region = MKCoordinateRegion(center: location,
+                                                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
+                self.mapView.setRegion(region, animated: true)
+            }
+        } else {
+            // No local results, offline
+            showAlert(title: "Not Found", message: "No matching streets found. Connect to the internet to search addresses outside our database.")
+        }
+    }
+
+    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+        dismissPopups()
     }
 }
 
@@ -897,5 +1178,17 @@ extension MapViewController: StreetDetailDelegate {
         parkingRepo.parkCar(at: coordinate, streetName: streetName)
         addParkedCarAnnotation(at: coordinate)
         checkSweepingStatusForParkedCar()
+    }
+}
+
+// MARK: - SearchResultsDelegate
+
+extension MapViewController: SearchResultsDelegate {
+    func didSelectStreet(name: String, coordinate: CLLocationCoordinate2D) {
+        dismissPopups()
+        searchBar.text = name
+        let region = MKCoordinateRegion(center: coordinate,
+                                        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
+        mapView.setRegion(region, animated: true)
     }
 }

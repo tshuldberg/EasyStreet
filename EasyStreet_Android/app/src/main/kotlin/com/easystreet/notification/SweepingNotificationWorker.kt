@@ -5,7 +5,8 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import androidx.core.app.NotificationCompat
-import androidx.work.Worker
+import androidx.work.CoroutineWorker
+import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import java.time.Instant
 import java.time.LocalDateTime
@@ -15,9 +16,9 @@ import java.time.format.DateTimeFormatter
 class SweepingNotificationWorker(
     context: Context,
     params: WorkerParameters,
-) : Worker(context, params) {
+) : CoroutineWorker(context, params) {
 
-    override fun doWork(): Result {
+    override suspend fun doWork(): Result {
         val streetName = inputData.getString(KEY_STREET_NAME) ?: "your street"
         val sweepTimeMillis = inputData.getLong(KEY_SWEEP_TIME, 0L)
 
@@ -41,11 +42,24 @@ class SweepingNotificationWorker(
             .setAutoCancel(true)
             .build()
 
+        val notificationId = sweepTimeMillis.hashCode()
+
         val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE)
             as NotificationManager
-        manager.notify(NOTIFICATION_ID, notification)
+        manager.notify(notificationId, notification)
 
         return Result.success()
+    }
+
+    override suspend fun getForegroundInfo(): ForegroundInfo {
+        ensureNotificationChannel()
+        val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("EasyStreet")
+            .setContentText("Preparing sweeping alert...")
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+        return ForegroundInfo(FOREGROUND_NOTIFICATION_ID, notification)
     }
 
     private fun ensureNotificationChannel() {
@@ -67,6 +81,6 @@ class SweepingNotificationWorker(
         const val KEY_STREET_NAME = "street_name"
         const val KEY_SWEEP_TIME = "sweep_time"
         private const val CHANNEL_ID = "sweeping_alerts"
-        private const val NOTIFICATION_ID = 1001
+        private const val FOREGROUND_NOTIFICATION_ID = 9999
     }
 }

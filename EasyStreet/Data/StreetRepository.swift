@@ -263,6 +263,39 @@ class StreetRepository {
         return result
     }
 
+    /// Search streets by name for offline address lookup.
+    func searchStreets(query: String, limit: Int = 10) -> [(streetName: String, coordinate: CLLocationCoordinate2D)] {
+        guard useSQLite, !query.isEmpty else { return [] }
+
+        let sql = """
+            SELECT street_name,
+                   AVG((lat_min + lat_max) / 2.0) AS avg_lat,
+                   AVG((lng_min + lng_max) / 2.0) AS avg_lng
+            FROM street_segments
+            WHERE street_name LIKE ?
+            GROUP BY street_name
+            ORDER BY street_name
+            LIMIT ?
+            """
+
+        var results: [(streetName: String, coordinate: CLLocationCoordinate2D)] = []
+
+        do {
+            try DatabaseManager.shared.query(sql, parameters: ["%\(query)%", limit]) { stmt in
+                let name = DatabaseManager.string(from: stmt, column: 0)
+                let lat = DatabaseManager.double(from: stmt, column: 1)
+                let lng = DatabaseManager.double(from: stmt, column: 2)
+                results.append((streetName: name, coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng)))
+            }
+        } catch {
+            #if DEBUG
+            print("[EasyStreet] StreetRepository: searchStreets failed: \(error)")
+            #endif
+        }
+
+        return results
+    }
+
     // MARK: - Private Helpers
 
     func parseCoordinatesJSON(_ json: String) -> [[Double]] {
