@@ -166,7 +166,11 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
         // Re-schedule with new lead time if parked
         val car = parkingRepo.parkedCar.value ?: return
         viewModelScope.launch {
-            val segment = streetRepo.findNearestSegment(car.latitude, car.longitude) ?: return@launch
+            val segment = streetRepo.findNearestSegment(car.latitude, car.longitude)
+            if (segment == null) {
+                NotificationScheduler.cancel(getApplication())
+                return@launch
+            }
             evaluateAndSchedule(segment, car.streetName)
         }
     }
@@ -184,6 +188,8 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
                 streetName,
                 parkingPrefs.notificationLeadMinutes,
             )
+        } else {
+            NotificationScheduler.cancel(getApplication())
         }
     }
 }

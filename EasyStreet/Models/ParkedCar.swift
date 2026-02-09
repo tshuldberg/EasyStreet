@@ -11,6 +11,12 @@ class ParkedCarManager {
     private struct NotificationIDs {
         static let sweepingReminderPrefix = "sweepingReminder_"
     }
+
+    private enum NotificationLeadOptions {
+        static let supportedMinutes: [Int] = [60, 120, 360, 1440, 2880]
+        static let fallbackMinutes = 60
+    }
+
     private var scheduledNotificationIDs: [String] {
         didSet { defaults.set(scheduledNotificationIDs, forKey: UserDefaultsKeys.scheduledNotificationIDs) }
     }
@@ -22,6 +28,7 @@ class ParkedCarManager {
         static let parkedTimestamp = "parkedTimestamp"
         static let parkedStreetName = "parkedStreetName"
         static let notificationLeadMinutes = "notificationLeadMinutes"
+        static let notificationLeadMinutesSet = "notificationLeadMinutesSet"
         static let scheduledNotificationIDs = "scheduledNotificationIDs"
     }
 
@@ -68,14 +75,45 @@ class ParkedCarManager {
         return defaults.string(forKey: UserDefaultsKeys.parkedStreetName)
     }
 
-    /// Notification lead time in minutes (default: 60)
+    var availableNotificationLeadMinutes: [Int] {
+        NotificationLeadOptions.supportedMinutes
+    }
+
+    /// Notification lead time in minutes (legacy single-select API, default: 60)
     var notificationLeadMinutes: Int {
         get {
-            let stored = defaults.integer(forKey: UserDefaultsKeys.notificationLeadMinutes)
-            return stored > 0 ? stored : 60
+            notificationLeadMinutesSet.first ?? NotificationLeadOptions.fallbackMinutes
         }
         set {
-            defaults.set(newValue, forKey: UserDefaultsKeys.notificationLeadMinutes)
+            let normalized = sanitizeLeadMinutesSet([newValue])
+            defaults.set(normalized.first ?? NotificationLeadOptions.fallbackMinutes, forKey: UserDefaultsKeys.notificationLeadMinutes)
+            defaults.set(normalized, forKey: UserDefaultsKeys.notificationLeadMinutesSet)
+        }
+    }
+
+    /// Notification lead times in minutes (multi-select API)
+    var notificationLeadMinutesSet: [Int] {
+        get {
+            if let stored = defaults.array(forKey: UserDefaultsKeys.notificationLeadMinutesSet) as? [Int] {
+                let normalized = sanitizeLeadMinutesSet(stored)
+                if normalized != stored {
+                    defaults.set(normalized, forKey: UserDefaultsKeys.notificationLeadMinutesSet)
+                }
+                defaults.set(normalized.first ?? NotificationLeadOptions.fallbackMinutes, forKey: UserDefaultsKeys.notificationLeadMinutes)
+                return normalized
+            }
+
+            // Migrate legacy single value to a normalized set.
+            let legacy = defaults.integer(forKey: UserDefaultsKeys.notificationLeadMinutes)
+            let normalized = sanitizeLeadMinutesSet([legacy])
+            defaults.set(normalized, forKey: UserDefaultsKeys.notificationLeadMinutesSet)
+            defaults.set(normalized.first ?? NotificationLeadOptions.fallbackMinutes, forKey: UserDefaultsKeys.notificationLeadMinutes)
+            return normalized
+        }
+        set {
+            let normalized = sanitizeLeadMinutesSet(newValue)
+            defaults.set(normalized, forKey: UserDefaultsKeys.notificationLeadMinutesSet)
+            defaults.set(normalized.first ?? NotificationLeadOptions.fallbackMinutes, forKey: UserDefaultsKeys.notificationLeadMinutes)
         }
     }
 
@@ -140,53 +178,55 @@ class ParkedCarManager {
                 return
             }
 
-            // Create notification content
-            let content = UNMutableNotificationContent()
-            content.title = "Street Sweeping Alert"
-            content.body = "Street sweeping soon at \(streetName)! Move your car by \(self.formatTime(sweepingTime))."
-            content.sound = .default
-
-            // Notify user ahead of sweeping by configurable lead time
-            let leadSeconds = TimeInterval(self.notificationLeadMinutes * 60)
-            let notificationTime = sweepingTime.addingTimeInterval(-leadSeconds)
-
-            // Only schedule if notification time is in the future
-            guard notificationTime > Date() else {
-                #if DEBUG
-                print("Warning: Attempted to schedule a notification in the past")
-                #endif
-                return
-            }
-
-            // Create trigger (with some time before the actual sweeping)
-            let triggerDate = Calendar.current.dateComponents(
-                [.year, .month, .day, .hour, .minute],
-                from: notificationTime
-            )
-            let trigger = UNCalendarNotificationTrigger(dateMatching: triggerDate, repeats: false)
-
             // Deduplicate: remove any existing sweeping reminders before scheduling new ones
             let existingIDs = self.scheduledNotificationIDs.filter { $0.hasPrefix(NotificationIDs.sweepingReminderPrefix) }
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: existingIDs)
             self.scheduledNotificationIDs.removeAll()
 
-            // Create request with unique ID based on sweeping time
-            let notificationID = "\(NotificationIDs.sweepingReminderPrefix)\(Int(sweepingTime.timeIntervalSince1970))"
-            let request = UNNotificationRequest(
-                identifier: notificationID,
-                content: content,
-                trigger: trigger
-            )
+            let selectedLeadMinutes = self.notificationLeadMinutesSet.sorted(by: >)
+            let now = Date()
+            var hasScheduledRequest = false
 
-            // Add to notification center
-            UNUserNotificationCenter.current().add(request) { error in
-                if let error = error {
-                    #if DEBUG
-                    print("Error scheduling notification: \(error)")
-                    #endif
-                } else {
-                    self.scheduledNotificationIDs.append(notificationID)
+            for leadMinutes in selectedLeadMinutes {
+                let leadSeconds = TimeInterval(leadMinutes * 60)
+                let notificationTime = sweepingTime.addingTimeInterval(-leadSeconds)
+                guard notificationTime > now else { continue }
+
+                hasScheduledRequest = true
+
+                let content = UNMutableNotificationContent()
+                content.title = "Street Sweeping Alert"
+                content.body = "Street sweeping at \(streetName) starts at \(self.formatTime(sweepingTime)). Reminder: \(self.formatLeadTime(leadMinutes)) before."
+                content.sound = .default
+
+                let triggerDate = Calendar.current.dateComponents(
+                    [.year, .month, .day, .hour, .minute],
+                    from: notificationTime
+                )
+                let trigger = UNCalendarNotificationTrigger(dateMatching: triggerDate, repeats: false)
+
+                let notificationID = "\(NotificationIDs.sweepingReminderPrefix)\(Int(sweepingTime.timeIntervalSince1970))_\(leadMinutes)"
+                let request = UNNotificationRequest(
+                    identifier: notificationID,
+                    content: content,
+                    trigger: trigger
+                )
+
+                UNUserNotificationCenter.current().add(request) { error in
+                    if let error = error {
+                        #if DEBUG
+                        print("Error scheduling notification: \(error)")
+                        #endif
+                    } else {
+                        self.scheduledNotificationIDs.append(notificationID)
+                    }
                 }
+            }
+
+            if !hasScheduledRequest {
+                #if DEBUG
+                print("Warning: No reminders scheduled because all selected lead times are in the past")
+                #endif
             }
         }
     }
@@ -197,6 +237,20 @@ class ParkedCarManager {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
         return formatter.string(from: date)
+    }
+
+    private func formatLeadTime(_ minutes: Int) -> String {
+        if minutes % 60 == 0 {
+            let hours = minutes / 60
+            return "\(hours) hour\(hours == 1 ? "" : "s")"
+        }
+        return "\(minutes) minutes"
+    }
+
+    private func sanitizeLeadMinutesSet(_ values: [Int]) -> [Int] {
+        let allowed = Set(NotificationLeadOptions.supportedMinutes)
+        let normalized = Array(Set(values.filter { allowed.contains($0) })).sorted()
+        return normalized.isEmpty ? [NotificationLeadOptions.fallbackMinutes] : normalized
     }
 }
 

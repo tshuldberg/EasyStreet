@@ -28,43 +28,61 @@ class SweepingRuleEngine {
         let calendar = Calendar.current
         let weekday = calendar.component(.weekday, from: now)
 
-        // Check if sweeping is today
-        if let todayRule = segment.rules.first(where: { rule in
+        let todayRules = segment.rules.filter { rule in
             rule.dayOfWeek == weekday && rule.appliesTo(date: now)
-        }) {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "HH:mm"
+        }
 
-            guard let startTime = formatter.date(from: todayRule.startTime) else {
-                return .unknown
+        var nextTodaySweep: Date?
+        var parsedTodayRuleCount = 0
+        var hadParseError = false
+
+        for rule in todayRules {
+            guard let (hour, minute) = parseHourMinute(rule.startTime) else {
+                hadParseError = true
+                continue
             }
 
             guard let sweepingDateTime = calendar.date(
-                bySettingHour: calendar.component(.hour, from: startTime),
-                minute: calendar.component(.minute, from: startTime),
-                second: 0, of: now
+                bySettingHour: hour,
+                minute: minute,
+                second: 0,
+                of: now
             ) else {
-                return .unknown
+                hadParseError = true
+                continue
             }
 
-            if sweepingDateTime < now {
-                return .safe
-            } else {
-                let hoursRemaining = sweepingDateTime.timeIntervalSince(now) / 3600
-                if hoursRemaining < 1 {
-                    return .imminent(time: sweepingDateTime, streetName: segment.streetName)
+            parsedTodayRuleCount += 1
+
+            if sweepingDateTime >= now {
+                if let existing = nextTodaySweep {
+                    if sweepingDateTime < existing {
+                        nextTodaySweep = sweepingDateTime
+                    }
                 } else {
-                    return .today(time: sweepingDateTime, streetName: segment.streetName)
+                    nextTodaySweep = sweepingDateTime
                 }
             }
-        } else {
-            let (nextDate, _) = segment.nextSweeping(from: now)
-            if let nextDate = nextDate {
-                return .upcoming(time: nextDate, streetName: segment.streetName)
-            } else {
-                return .safe
-            }
         }
+
+        if let nextTodaySweep = nextTodaySweep {
+            let hoursRemaining = nextTodaySweep.timeIntervalSince(now) / 3600
+            if hoursRemaining < 1 {
+                return .imminent(time: nextTodaySweep, streetName: segment.streetName)
+            }
+            return .today(time: nextTodaySweep, streetName: segment.streetName)
+        }
+
+        if parsedTodayRuleCount == 0 && hadParseError {
+            return .unknown
+        }
+
+        let (nextDate, _) = segment.nextSweeping(from: now)
+        if let nextDate = nextDate {
+            return .upcoming(time: nextDate, streetName: segment.streetName)
+        }
+
+        return .safe
     }
 
     /// Check if a given date is a holiday in San Francisco
@@ -72,6 +90,18 @@ class SweepingRuleEngine {
     /// - Returns: Boolean indicating if it's a holiday
     func isHoliday(_ date: Date) -> Bool {
         return holidayCalculator.isHoliday(date)
+    }
+
+    private func parseHourMinute(_ value: String) -> (Int, Int)? {
+        let parts = value.split(separator: ":")
+        guard parts.count == 2,
+              let hour = Int(parts[0]),
+              let minute = Int(parts[1]),
+              (0...23).contains(hour),
+              (0...59).contains(minute) else {
+            return nil
+        }
+        return (hour, minute)
     }
 }
 

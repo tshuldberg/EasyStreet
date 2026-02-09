@@ -20,6 +20,22 @@ class MapViewController: UIViewController {
     private let searchButton = MapViewController.makeToolbarButton(systemName: "magnifyingglass")
     private let myLocationButton = MapViewController.makeToolbarButton(systemName: "location.fill")
     private let myCarButton = MapViewController.makeToolbarButton(systemName: "car.fill")
+    private lazy var compassButton: MKCompassButton = {
+        let button = MKCompassButton(mapView: mapView)
+        button.compassVisibility = .adaptive
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.backgroundColor = .systemBackground
+        button.layer.cornerRadius = 20
+        button.layer.shadowColor = UIColor.black.cgColor
+        button.layer.shadowOpacity = 0.15
+        button.layer.shadowOffset = CGSize(width: 0, height: 1)
+        button.layer.shadowRadius = 4
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: 40),
+            button.heightAnchor.constraint(equalToConstant: 40)
+        ])
+        return button
+    }()
 
     // MARK: - Legend Popup
 
@@ -119,6 +135,21 @@ class MapViewController: UIViewController {
     private var searchDebounceTimer: Timer?
     private var isLegendPopupVisible = false
     private var isSearchPopupVisible = false
+    private var hasAutoRecenteredToCoverage = false
+    private var hasTriggeredJSONDataFallback = false
+    private let defaultCoverageCenter = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
+    private let defaultCoverageSpan = MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03)
+    private let maxOverlayLatitudeDelta: CLLocationDegrees = 0.12
+    private let minOverlayQueryRadiusMeters: CLLocationDistance = 250
+    private let maxOverlayQueryRadiusMeters: CLLocationDistance = 2_200
+    private let overlayQueryRadiusViewFactor: Double = 0.55
+    private var colorCacheDetailLevel: OverlayDetailLevel = .fullRange
+
+    private enum OverlayDetailLevel: Int {
+        case todayOnly
+        case todayAndTomorrow
+        case fullRange
+    }
 
     // MARK: - Lifecycle
 
@@ -187,6 +218,12 @@ class MapViewController: UIViewController {
         }
     }
 
+    deinit {
+        overlayUpdateTimer?.invalidate()
+        searchDebounceTimer?.invalidate()
+        NotificationCenter.default.removeObserver(self)
+    }
+
     /// Public refresh entry point for SceneDelegate and other external callers.
     /// Refreshes map overlay colors based on the current time.
     func refreshMapDisplay() {
@@ -215,6 +252,7 @@ class MapViewController: UIViewController {
         // Right button stack
         rightButtonStack.addArrangedSubview(myLocationButton)
         rightButtonStack.addArrangedSubview(myCarButton)
+        rightButtonStack.insertArrangedSubview(compassButton, at: 0)
         myCarButton.isHidden = true // Only shown when car is parked
 
         NSLayoutConstraint.activate([
@@ -275,12 +313,10 @@ class MapViewController: UIViewController {
     private func setupMapView() {
         mapView.delegate = self
         mapView.showsUserLocation = true
+        mapView.showsCompass = false
 
-        // Set initial region to San Francisco
-        let sfCoordinate = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
-        let region = MKCoordinateRegion(center: sfCoordinate,
-                                        span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03))
-        mapView.setRegion(region, animated: false)
+        // Set initial region to supported coverage area
+        recenterToDefaultCoverage(animated: false)
 
         // Set up gesture recognizer for pin adjustment
         let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
@@ -425,8 +461,8 @@ class MapViewController: UIViewController {
         print("[EasyStreet] updateMapOverlays: span=\(span.latitudeDelta)")
         #endif
 
-        // Don't render overlays when zoomed out too far (prevents 21K+ overlays)
-        guard span.latitudeDelta < 0.05 else {
+        // Don't render overlays when zoomed out too far.
+        guard span.latitudeDelta < maxOverlayLatitudeDelta else {
             #if DEBUG
             print("[EasyStreet] updateMapOverlays: SKIPPED, zoomed out (span=\(span.latitudeDelta))")
             #endif
@@ -438,22 +474,64 @@ class MapViewController: UIViewController {
             return
         }
 
-        let visibleRect = mapView.visibleMapRect
-        let visibleSegments = streetRepo.segments(in: visibleRect)
+        let detailLevel = overlayDetailLevel(for: span)
+        let mapCenter = mapView.region.center
+        let queryRadiusMeters = overlayQueryRadiusMeters(for: mapView.region)
+        let focusedRegion = coordinateRegion(center: mapCenter, radiusMeters: queryRadiusMeters)
+
+        var visibleSegments = streetRepo.segments(in: focusedRegion)
+        if visibleSegments.isEmpty {
+            // Fallback: query map rect directly for runtimes where region conversion is less reliable.
+            visibleSegments = streetRepo.segments(in: mapView.visibleMapRect)
+        }
+        if visibleSegments.isEmpty {
+            // Fallback: region-based query is more stable on some device/runtime combos.
+            visibleSegments = streetRepo.segments(in: mapView.region)
+            #if DEBUG
+            print("[EasyStreet] updateMapOverlays: region fallback returned \(visibleSegments.count) segments")
+            #endif
+        }
+
+        let segmentCap = overlaySegmentCap(for: detailLevel)
+        if visibleSegments.count > segmentCap {
+            visibleSegments = cappedSegments(visibleSegments, around: mapCenter, limit: segmentCap)
+        }
+
         let visibleIDs = Set(visibleSegments.map { $0.id })
+
+        if visibleSegments.isEmpty && displayedSegmentIDs.isEmpty && hasInitiallyLocated && !hasAutoRecenteredToCoverage {
+            hasAutoRecenteredToCoverage = true
+            recenterToDefaultCoverage(animated: true)
+        }
+
+        if visibleSegments.isEmpty && !hasTriggeredJSONDataFallback {
+            hasTriggeredJSONDataFallback = true
+            streetRepo.ensureJSONFallbackLoaded { [weak self] success in
+                guard let self = self else { return }
+                if success {
+                    self.updateMapOverlays()
+                }
+            }
+        }
 
         // Day-based color cache invalidation: only clear when the calendar day changes
         let today = Date()
         let cal = Calendar.current
         let currentDay = cal.ordinality(of: .day, in: .year, for: today) ?? 0
-        if currentDay != colorCacheDay {
+        let detailChanged = detailLevel != colorCacheDetailLevel
+        if currentDay != colorCacheDay || detailChanged {
             colorCache.removeAll(keepingCapacity: true)
             colorCacheDay = currentDay
+            colorCacheDetailLevel = detailLevel
+
+            // Force renderer refresh when detail tier changes so existing lines get updated colors.
+            let polylines = mapView.overlays.compactMap { $0 as? MKPolyline }
+            if !polylines.isEmpty {
+                mapView.removeOverlays(polylines)
+                displayedSegmentIDs.removeAll()
+            }
         }
-        let upcomingDates: [(offset: Int, date: Date)] = (1...3).compactMap { offset in
-            guard let d = cal.date(byAdding: .day, value: offset, to: today) else { return nil }
-            return (offset, d)
-        }
+        let upcomingDates = upcomingDates(for: today, detailLevel: detailLevel, calendar: cal)
         for segment in visibleSegments where colorCache[segment.id] == nil {
             colorCache[segment.id] = segment.mapColorStatus(today: today, upcomingDates: upcomingDates)
         }
@@ -478,13 +556,8 @@ class MapViewController: UIViewController {
             for segment in newSegments {
                 let polyline = segment.polyline
                 polyline.title = segment.id
-                switch colorCache[segment.id] ?? .green {
-                case .red: polyline.subtitle = "red"
-                case .orange: polyline.subtitle = "orange"
-                case .yellow: polyline.subtitle = "yellow"
-                case .green: polyline.subtitle = "green"
-                }
-                mapView.addOverlay(polyline, level: .aboveLabels)
+                polyline.subtitle = mapColorToken(for: colorCache[segment.id] ?? .green)
+                mapView.addOverlay(polyline, level: .aboveRoads)
             }
 
             #if DEBUG
@@ -497,10 +570,179 @@ class MapViewController: UIViewController {
         }
 
         #if DEBUG
-        print("[EasyStreet] updateMapOverlays: \(visibleSegments.count) visible, +\(toAdd.count)/-\(toRemove.count), total overlays=\(mapView.overlays.count)")
+        print("[EasyStreet] updateMapOverlays: \(visibleSegments.count) visible (cap=\(segmentCap), radius=\(Int(queryRadiusMeters))m, detail=\(detailLevel.rawValue)), +\(toAdd.count)/-\(toRemove.count), total overlays=\(mapView.overlays.count)")
         #endif
 
         displayedSegmentIDs = visibleIDs
+    }
+
+    private func recenterToDefaultCoverage(animated: Bool) {
+        let region = MKCoordinateRegion(center: defaultCoverageCenter, span: defaultCoverageSpan)
+        mapView.setRegion(region, animated: animated)
+    }
+
+    private func locationHasStreetCoverage(_ coordinate: CLLocationCoordinate2D) -> Bool {
+        if streetRepo.findSegment(near: coordinate) != nil {
+            return true
+        }
+
+        let region = MKCoordinateRegion(
+            center: coordinate,
+            span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03)
+        )
+        return !streetRepo.segments(in: mapRect(for: region)).isEmpty
+    }
+
+    private func mapRect(for region: MKCoordinateRegion) -> MKMapRect {
+        let topLeft = CLLocationCoordinate2D(
+            latitude: region.center.latitude + (region.span.latitudeDelta / 2),
+            longitude: region.center.longitude - (region.span.longitudeDelta / 2)
+        )
+        let bottomRight = CLLocationCoordinate2D(
+            latitude: region.center.latitude - (region.span.latitudeDelta / 2),
+            longitude: region.center.longitude + (region.span.longitudeDelta / 2)
+        )
+
+        let topLeftPoint = MKMapPoint(topLeft)
+        let bottomRightPoint = MKMapPoint(bottomRight)
+
+        return MKMapRect(
+            x: min(topLeftPoint.x, bottomRightPoint.x),
+            y: min(topLeftPoint.y, bottomRightPoint.y),
+            width: abs(topLeftPoint.x - bottomRightPoint.x),
+            height: abs(topLeftPoint.y - bottomRightPoint.y)
+        )
+    }
+
+    private func overlayDetailLevel(for span: MKCoordinateSpan) -> OverlayDetailLevel {
+        if span.latitudeDelta < 0.02 {
+            return .fullRange
+        }
+        if span.latitudeDelta < 0.05 {
+            return .todayAndTomorrow
+        }
+        return .todayOnly
+    }
+
+    private func overlaySegmentCap(for detailLevel: OverlayDetailLevel) -> Int {
+        switch detailLevel {
+        case .fullRange:
+            return 650
+        case .todayAndTomorrow:
+            return 450
+        case .todayOnly:
+            return 300
+        }
+    }
+
+    private func overlayQueryRadiusMeters(for region: MKCoordinateRegion) -> CLLocationDistance {
+        let latitudeRadians = region.center.latitude * .pi / 180
+        let longitudeMetersPerDegree = max(cos(latitudeRadians) * 111_000, 1)
+        let latitudeMeters = region.span.latitudeDelta * 111_000
+        let longitudeMeters = region.span.longitudeDelta * longitudeMetersPerDegree
+        let radius = min(latitudeMeters, longitudeMeters) * overlayQueryRadiusViewFactor
+        return max(minOverlayQueryRadiusMeters, min(maxOverlayQueryRadiusMeters, radius))
+    }
+
+    private func coordinateRegion(center: CLLocationCoordinate2D, radiusMeters: CLLocationDistance) -> MKCoordinateRegion {
+        let latitudeDelta = (radiusMeters * 2) / 111_000
+        let longitudeMetersPerDegree = max(cos(center.latitude * .pi / 180) * 111_000, 1)
+        let longitudeDelta = (radiusMeters * 2) / longitudeMetersPerDegree
+        return MKCoordinateRegion(
+            center: center,
+            span: MKCoordinateSpan(latitudeDelta: latitudeDelta, longitudeDelta: longitudeDelta)
+        )
+    }
+
+    private func upcomingDates(
+        for today: Date,
+        detailLevel: OverlayDetailLevel,
+        calendar: Calendar
+    ) -> [(offset: Int, date: Date)] {
+        let offsets: [Int]
+        switch detailLevel {
+        case .todayOnly:
+            offsets = []
+        case .todayAndTomorrow:
+            offsets = [1]
+        case .fullRange:
+            offsets = [1, 2, 3]
+        }
+
+        return offsets.compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: offset, to: today) else { return nil }
+            return (offset, date)
+        }
+    }
+
+    private func cappedSegments(
+        _ segments: [StreetSegment],
+        around center: CLLocationCoordinate2D,
+        limit: Int
+    ) -> [StreetSegment] {
+        guard segments.count > limit else { return segments }
+        let centerLocation = CLLocation(latitude: center.latitude, longitude: center.longitude)
+        return segments
+            .sorted { lhs, rhs in
+                let leftDistance = segmentDistanceToCenter(lhs, centerLocation: centerLocation)
+                let rightDistance = segmentDistanceToCenter(rhs, centerLocation: centerLocation)
+                if leftDistance == rightDistance {
+                    return lhs.id < rhs.id
+                }
+                return leftDistance < rightDistance
+            }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    private func segmentDistanceToCenter(_ segment: StreetSegment, centerLocation: CLLocation) -> CLLocationDistance {
+        guard let representative = representativeCoordinate(for: segment) else {
+            return .greatestFiniteMagnitude
+        }
+        let segmentLocation = CLLocation(latitude: representative.latitude, longitude: representative.longitude)
+        return centerLocation.distance(from: segmentLocation)
+    }
+
+    private func representativeCoordinate(for segment: StreetSegment) -> CLLocationCoordinate2D? {
+        guard !segment.coordinates.isEmpty else { return nil }
+
+        let indices = Set([
+            0,
+            segment.coordinates.count / 2,
+            segment.coordinates.count - 1
+        ])
+
+        var latitudeTotal = 0.0
+        var longitudeTotal = 0.0
+        var count = 0.0
+
+        for index in indices {
+            guard index >= 0, index < segment.coordinates.count else { continue }
+            let pair = segment.coordinates[index]
+            guard pair.count >= 2 else { continue }
+            latitudeTotal += pair[0]
+            longitudeTotal += pair[1]
+            count += 1
+        }
+
+        guard count > 0 else { return nil }
+        return CLLocationCoordinate2D(
+            latitude: latitudeTotal / count,
+            longitude: longitudeTotal / count
+        )
+    }
+
+    private func mapColorToken(for status: StreetSegment.MapColorStatus) -> String {
+        switch status {
+        case .red:
+            return "red"
+        case .orange:
+            return "orange"
+        case .yellow:
+            return "yellow"
+        case .green:
+            return "green"
+        }
     }
 
     // MARK: - Parked Car Management
@@ -751,21 +993,24 @@ class MapViewController: UIViewController {
     }
 
     @objc private func settingsTapped() {
-        let current = parkingRepo.notificationLeadMinutes
-        let alert = UIAlertController(
-            title: "Notification Lead Time",
-            message: "How far in advance should we notify you? Currently: \(current) minutes",
-            preferredStyle: .actionSheet
-        )
-        for minutes in [15, 30, 60, 120] {
-            let title = minutes < 60 ? "\(minutes) minutes" : "\(minutes / 60) hour\(minutes > 60 ? "s" : "")"
-            let style: UIAlertAction.Style = minutes == current ? .destructive : .default
-            alert.addAction(UIAlertAction(title: title, style: style) { [weak self] _ in
-                self?.parkingRepo.notificationLeadMinutes = minutes
-            })
+        let settingsVC = NotificationLeadTimeSettingsViewController(
+            options: parkingRepo.availableNotificationLeadMinutes,
+            selected: parkingRepo.notificationLeadMinutesSet
+        ) { [weak self] updatedSelection in
+            guard let self = self else { return }
+            self.parkingRepo.notificationLeadMinutesSet = updatedSelection
+            if self.parkingRepo.isCarParked {
+                self.checkSweepingStatusForParkedCar()
+            }
         }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(alert, animated: true)
+
+        let navigationController = UINavigationController(rootViewController: settingsVC)
+        if #available(iOS 15.0, *),
+           let sheet = navigationController.sheetPresentationController {
+            sheet.detents = [.medium()]
+            sheet.prefersGrabberVisible = true
+        }
+        present(navigationController, animated: true)
     }
 
     @objc private func handleLongPress(_ gestureRecognizer: UILongPressGestureRecognizer) {
@@ -835,16 +1080,22 @@ class MapViewController: UIViewController {
         let metersPerPixel = mapView.region.span.latitudeDelta * 111_000 / Double(mapView.bounds.height)
         let thresholdMeters = metersPerPixel * 30.0
 
-        guard let polyline = MapHitTesting.findClosestPolyline(
+        if let polyline = MapHitTesting.findClosestPolyline(
             tapMapPoint: tapMapPoint,
             overlays: mapView.overlays,
             thresholdMeters: thresholdMeters
-        ) else { return }
+        ),
+           let segmentID = polyline.title,
+           let segment = streetRepo.segment(byID: segmentID) {
+            presentStreetDetail(for: segment)
+            return
+        }
 
-        guard let segmentID = polyline.title,
-              let segment = streetRepo.segment(byID: segmentID) else { return }
-
-        presentStreetDetail(for: segment)
+        // Fallback when overlays are unavailable: resolve nearest segment from dataset.
+        if let nearestSegment = streetRepo.findSegment(near: tapCoordinate),
+           isCoordinate(tapCoordinate, near: nearestSegment, thresholdMeters: max(35, thresholdMeters * 2.0)) {
+            presentStreetDetail(for: nearestSegment)
+        }
     }
 
     private func presentStreetDetail(for segment: StreetSegment) {
@@ -893,6 +1144,27 @@ class MapViewController: UIViewController {
         }
     }
 
+    private func isCoordinate(
+        _ coordinate: CLLocationCoordinate2D,
+        near segment: StreetSegment,
+        thresholdMeters: CLLocationDistance
+    ) -> Bool {
+        let tapLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        var minimumDistance = CLLocationDistance.greatestFiniteMagnitude
+
+        for pair in segment.coordinates {
+            guard pair.count >= 2 else { continue }
+            let candidate = CLLocation(latitude: pair[0], longitude: pair[1])
+            let distance = tapLocation.distance(from: candidate)
+            minimumDistance = min(minimumDistance, distance)
+            if distance <= thresholdMeters {
+                return true
+            }
+        }
+
+        return minimumDistance <= thresholdMeters
+    }
+
     @objc private func connectivityChanged() {
         if ConnectivityMonitor.shared.isConnected {
             offlineBanner.hide()
@@ -938,8 +1210,10 @@ extension MapViewController: MKMapViewDelegate {
     func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
         if let polyline = overlay as? MKPolyline {
             let renderer = MKPolylineRenderer(polyline: polyline)
-            renderer.lineWidth = 4
-            renderer.alpha = 0.85
+            renderer.lineWidth = 6
+            renderer.alpha = 0.95
+            renderer.lineJoin = .round
+            renderer.lineCap = .round
 
             #if DEBUG
             // Log first few renderer calls
@@ -1128,9 +1402,14 @@ extension MapViewController: CLLocationManagerDelegate {
         // Only center map on first location fix
         if !hasInitiallyLocated {
             hasInitiallyLocated = true
-            let region = MKCoordinateRegion(center: location,
-                                            span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
-            mapView.setRegion(region, animated: true)
+            if locationHasStreetCoverage(location) {
+                let region = MKCoordinateRegion(center: location,
+                                                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
+                mapView.setRegion(region, animated: true)
+            } else {
+                hasAutoRecenteredToCoverage = true
+                recenterToDefaultCoverage(animated: true)
+            }
         }
 
         locationManager.stopUpdatingLocation()
@@ -1190,5 +1469,88 @@ extension MapViewController: SearchResultsDelegate {
         let region = MKCoordinateRegion(center: coordinate,
                                         span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
         mapView.setRegion(region, animated: true)
+    }
+}
+
+private final class NotificationLeadTimeSettingsViewController: UITableViewController {
+    private let options: [Int]
+    private var selected: Set<Int>
+    private let onSave: ([Int]) -> Void
+
+    init(options: [Int], selected: [Int], onSave: @escaping ([Int]) -> Void) {
+        self.options = options.sorted()
+        self.selected = Set(selected)
+        if self.selected.isEmpty, let first = self.options.first {
+            self.selected.insert(first)
+        }
+        self.onSave = onSave
+        super.init(style: .insetGrouped)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        title = "Reminder Lead Times"
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "LeadOptionCell")
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            barButtonSystemItem: .cancel,
+            target: self,
+            action: #selector(cancelTapped)
+        )
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            barButtonSystemItem: .done,
+            target: self,
+            action: #selector(doneTapped)
+        )
+    }
+
+    override func numberOfSections(in tableView: UITableView) -> Int {
+        1
+    }
+
+    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        options.count
+    }
+
+    override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
+        "Select one or more reminders before sweeping starts."
+    }
+
+    override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "LeadOptionCell", for: indexPath)
+        let minutes = options[indexPath.row]
+        cell.textLabel?.text = Self.label(for: minutes)
+        cell.accessoryType = selected.contains(minutes) ? .checkmark : .none
+        return cell
+    }
+
+    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let minutes = options[indexPath.row]
+        if selected.contains(minutes) {
+            if selected.count > 1 {
+                selected.remove(minutes)
+            }
+        } else {
+            selected.insert(minutes)
+        }
+        tableView.reloadRows(at: [indexPath], with: .automatic)
+        tableView.deselectRow(at: indexPath, animated: true)
+    }
+
+    @objc private func cancelTapped() {
+        dismiss(animated: true)
+    }
+
+    @objc private func doneTapped() {
+        onSave(Array(selected).sorted())
+        dismiss(animated: true)
+    }
+
+    private static func label(for minutes: Int) -> String {
+        let hours = max(1, minutes / 60)
+        return "\(hours) hour\(hours == 1 ? "" : "s")"
     }
 }

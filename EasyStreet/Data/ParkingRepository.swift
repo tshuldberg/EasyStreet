@@ -23,6 +23,15 @@ class ParkingRepository {
         set { manager.notificationLeadMinutes = newValue }
     }
 
+    var notificationLeadMinutesSet: [Int] {
+        get { manager.notificationLeadMinutesSet }
+        set { manager.notificationLeadMinutesSet = newValue }
+    }
+
+    var availableNotificationLeadMinutes: [Int] {
+        manager.availableNotificationLeadMinutes
+    }
+
     // MARK: - Mutations
 
     func parkCar(at location: CLLocationCoordinate2D, streetName: String? = nil) {

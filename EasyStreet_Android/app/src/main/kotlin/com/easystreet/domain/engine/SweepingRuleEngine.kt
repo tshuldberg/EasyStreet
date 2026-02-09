@@ -17,7 +17,9 @@ object SweepingRuleEngine {
         val today = at.toLocalDate()
         val isHoliday = HolidayCalculator.isHoliday(today)
 
-        val todayRules = rules.filter { it.appliesTo(today, isHoliday) }
+        val todayRules = rules
+            .filter { it.appliesTo(today, isHoliday) }
+            .sortedBy { it.startTime }
 
         for (rule in todayRules) {
             val sweepStart = today.atTime(rule.startTime)
