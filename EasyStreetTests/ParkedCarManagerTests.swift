@@ -121,9 +121,25 @@ class ParkedCarManagerTests: XCTestCase {
         XCTAssertEqual(manager.notificationLeadMinutes, 60, "Default should be 60 minutes")
     }
 
-    func testNotificationLeadMinutesPersists() {
+    func testNotificationLeadMinutesSetDefault() {
+        XCTAssertEqual(manager.notificationLeadMinutesSet, [60], "Default lead set should contain 1 hour")
+    }
+
+    func testNotificationLeadMinutesSetPersistsMultipleValues() {
+        manager.notificationLeadMinutesSet = [120, 60, 1440]
+        XCTAssertEqual(manager.notificationLeadMinutesSet, [60, 120, 1440], "Lead set should persist in sorted order")
+        XCTAssertEqual(manager.notificationLeadMinutes, 60, "Legacy single value should mirror the earliest selected lead")
+    }
+
+    func testNotificationLeadMinutesSetFiltersUnsupportedValues() {
+        manager.notificationLeadMinutesSet = [30, 60, 75, 2880]
+        XCTAssertEqual(manager.notificationLeadMinutesSet, [60, 2880], "Unsupported lead values should be removed")
+    }
+
+    func testNotificationLeadMinutesSetterNormalizesUnsupportedValue() {
         manager.notificationLeadMinutes = 30
-        XCTAssertEqual(manager.notificationLeadMinutes, 30, "Custom lead time should persist")
+        XCTAssertEqual(manager.notificationLeadMinutes, 60, "Unsupported single values should normalize to the default lead")
+        XCTAssertEqual(manager.notificationLeadMinutesSet, [60], "Legacy setter should keep the multi-select set in sync")
     }
 
     // MARK: - NSNotification Posting

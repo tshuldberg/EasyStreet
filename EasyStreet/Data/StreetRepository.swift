@@ -13,6 +13,8 @@ class StreetRepository {
     private(set) var dataBuildDate: String?
     private static let cacheLimit = 1000
     private var coordinateCache: [String: [[Double]]] = [:]
+    private var isLoadingJSONFallback = false
+    private var pendingJSONFallbackCompletions: [(Bool) -> Void] = []
 
     private init() {}
 
@@ -126,6 +128,121 @@ class StreetRepository {
         return segmentMap.values.map { entry in
             StreetSegment(id: entry.id, streetName: entry.streetName,
                          coordinates: entry.coordinates, rules: entry.rules)
+        }
+    }
+
+    /// Force a fallback from SQLite to JSON-backed in-memory data.
+    /// Safe to call multiple times; only loads once.
+    func ensureJSONFallbackLoaded(completion: @escaping (Bool) -> Void) {
+        if !useSQLite {
+            completion(true)
+            return
+        }
+
+        if isLoadingJSONFallback {
+            pendingJSONFallbackCompletions.append(completion)
+            return
+        }
+
+        isLoadingJSONFallback = true
+        pendingJSONFallbackCompletions = [completion]
+
+        dataManager.loadData { [weak self] success in
+            guard let self = self else { return }
+            if success {
+                self.useSQLite = false
+                self.dataSourceInfo = "JSON fallback"
+            }
+
+            let completions = self.pendingJSONFallbackCompletions
+            self.pendingJSONFallbackCompletions.removeAll()
+            self.isLoadingJSONFallback = false
+            completions.forEach { $0(success) }
+        }
+    }
+
+    /// Return segments intersecting a visible map region.
+    /// This is used as a fallback when map-rect conversion is unreliable on-device.
+    func segments(in region: MKCoordinateRegion) -> [StreetSegment] {
+        guard useSQLite else {
+            let topLeft = CLLocationCoordinate2D(
+                latitude: region.center.latitude + (region.span.latitudeDelta / 2),
+                longitude: region.center.longitude - (region.span.longitudeDelta / 2)
+            )
+            let bottomRight = CLLocationCoordinate2D(
+                latitude: region.center.latitude - (region.span.latitudeDelta / 2),
+                longitude: region.center.longitude + (region.span.longitudeDelta / 2)
+            )
+            let topLeftPoint = MKMapPoint(topLeft)
+            let bottomRightPoint = MKMapPoint(bottomRight)
+            let rect = MKMapRect(
+                x: min(topLeftPoint.x, bottomRightPoint.x),
+                y: min(topLeftPoint.y, bottomRightPoint.y),
+                width: abs(topLeftPoint.x - bottomRightPoint.x),
+                height: abs(topLeftPoint.y - bottomRightPoint.y)
+            )
+            return dataManager.segments(in: rect)
+        }
+
+        let minLat = region.center.latitude - (region.span.latitudeDelta / 2)
+        let maxLat = region.center.latitude + (region.span.latitudeDelta / 2)
+        let minLon = region.center.longitude - (region.span.longitudeDelta / 2)
+        let maxLon = region.center.longitude + (region.span.longitudeDelta / 2)
+
+        let sql = """
+            SELECT s.id, s.street_name, s.coordinates,
+                   r.day_of_week, r.start_time, r.end_time, r.weeks_of_month, r.apply_on_holidays
+            FROM street_segments s
+            LEFT JOIN sweeping_rules r ON r.segment_id = s.id
+            WHERE s.lat_max >= ? AND s.lat_min <= ?
+              AND s.lng_max >= ? AND s.lng_min <= ?
+            """
+
+        var segmentMap: [String: (id: String, streetName: String, coordinates: [[Double]], rules: [SweepingRule])] = [:]
+
+        do {
+            try DatabaseManager.shared.query(sql, parameters: [minLat, maxLat, minLon, maxLon]) { stmt in
+                let id = DatabaseManager.string(from: stmt, column: 0)
+                let streetName = DatabaseManager.string(from: stmt, column: 1)
+                let coordsJSON = DatabaseManager.string(from: stmt, column: 2)
+
+                if segmentMap[id] == nil {
+                    let coordinates = coordinateCache[id] ?? parseCoordinatesJSON(coordsJSON)
+                    if coordinateCache[id] == nil {
+                        if coordinateCache.count >= StreetRepository.cacheLimit {
+                            coordinateCache.removeAll()
+                        }
+                        coordinateCache[id] = coordinates
+                    }
+                    segmentMap[id] = (id: id, streetName: streetName, coordinates: coordinates, rules: [])
+                }
+
+                let dayOfWeek = DatabaseManager.int(from: stmt, column: 3)
+                if dayOfWeek > 0 {
+                    let startTime = DatabaseManager.string(from: stmt, column: 4)
+                    let endTime = DatabaseManager.string(from: stmt, column: 5)
+                    let weeksJSON = DatabaseManager.string(from: stmt, column: 6)
+                    let applyOnHolidays = DatabaseManager.int(from: stmt, column: 7) != 0
+                    let rule = SweepingRule(
+                        dayOfWeek: dayOfWeek,
+                        startTime: startTime,
+                        endTime: endTime,
+                        weeksOfMonth: parseWeeksJSON(weeksJSON),
+                        applyOnHolidays: applyOnHolidays
+                    )
+                    segmentMap[id]?.rules.append(rule)
+                }
+            }
+        } catch {
+            #if DEBUG
+            print("[EasyStreet] StreetRepository: region query failed: \(error)")
+            #endif
+            return []
+        }
+
+        return segmentMap.values.map { entry in
+            StreetSegment(id: entry.id, streetName: entry.streetName,
+                          coordinates: entry.coordinates, rules: entry.rules)
         }
     }
 

@@ -8,8 +8,11 @@ import com.easystreet.domain.model.SweepingRule
 import org.json.JSONArray
 import java.time.DayOfWeek
 import java.time.LocalTime
+import java.util.concurrent.ConcurrentHashMap
 
 class StreetDao(private val db: StreetDatabase) {
+    private val coordinatesCache = ConcurrentHashMap<Long, List<LatLngPoint>>()
+    private val rulesCache = ConcurrentHashMap<Long, List<SweepingRule>>()
 
     fun getSegmentsInViewport(
         latMin: Double,
@@ -46,7 +49,9 @@ class StreetDao(private val db: StreetDatabase) {
                 val lngMaxDb = it.getDouble(6)
                 val coordsJson = it.getString(7)
 
-                val coordinates = parseCoordinates(coordsJson)
+                val coordinates = coordinatesCache[segmentId] ?: parseCoordinates(coordsJson).also {
+                    coordinatesCache[segmentId] = it
+                }
                 val rules = getRulesForSegment(segmentId)
 
                 segments.add(
@@ -115,6 +120,8 @@ class StreetDao(private val db: StreetDatabase) {
     }
 
     private fun getRulesForSegment(segmentId: Long): List<SweepingRule> {
+        rulesCache[segmentId]?.let { return it }
+
         val rules = mutableListOf<SweepingRule>()
 
         val cursor = db.database.rawQuery(
@@ -142,6 +149,7 @@ class StreetDao(private val db: StreetDatabase) {
             }
         }
 
+        rulesCache[segmentId] = rules
         return rules
     }
 

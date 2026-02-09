@@ -4,6 +4,11 @@ Dual-platform mobile app helping San Francisco residents avoid parking tickets b
 
 See @README.md for detailed project overview.
 
+## Instruction Sync (Critical)
+
+- Keep `/Users/trey/Desktop/Apps/Parks/EasyStreet/.claude/CLAUDE.md` and `/Users/trey/Desktop/Apps/Parks/EasyStreet/AGENTS.md` synchronized for persistent project rules.
+- Any new rule or rule change must be applied in both files in the same change.
+
 ---
 
 ## Project Structure
@@ -741,3 +746,9 @@ head -n 10 EasyStreet/Street_Sweeping_Schedule_20260206.csv
 - Project documentation: @README.md
 - iOS requirements: @EasyStreet/Reqs.md
 - Development notes: @EasyStreet/StreetSweepingAppDevelopment.md
+
+---
+
+## Workspace Skills
+
+- `/daily-report-ops` — Daily/ad-hoc reporting with strict naming + PR triage workflow (workspace skill)
