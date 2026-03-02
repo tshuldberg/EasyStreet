@@ -3,34 +3,39 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		07EE6279CC04941963F3D3D4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_DBD3D8AC-9031-4412-A658-C7DC23DED983" /* Assets.xcassets */; };
+		044C6ACCC18E2F322EFDFF01 /* easystreet.db-shm in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_0C56950E-5E7D-4AE6-B71D-869978103D78" /* easystreet.db-shm */; };
 		0BEC79FC7E7CAFC7B2D0282B /* ParkedCarManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B0FD1B83924F93F86CEE988 /* ParkedCarManagerTests.swift */; };
 		0D41A4172D33E17EA5A6DDDC /* SweepingRuleEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AD045602739A4A3410D6A3B /* SweepingRuleEngineTests.swift */; };
 		0EA73A1B0CD318A0C9983191 /* SweepingRuleEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5FA5359CF40EA1094CB29C0 /* SweepingRuleEngine.swift */; };
 		130945C9D02C198D1FB7B691 /* OverlayPipelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 470460C0212BE9AD00557E2A /* OverlayPipelineTests.swift */; };
+		18BE94117CEE73FAD6E2771D /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_170E9718-6473-4CDB-A5D1-38D24F8AE409" /* SceneDelegate.swift */; };
 		1D94599A73A6C1070DE46F4E /* ParkingRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 785A8A505F1F7300484852EB /* ParkingRepository.swift */; };
+		1F6D52AEB502463ADEADA5B3 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_02A28C6E-5A32-4D4D-9AF7-49ED330F47D9" /* LaunchScreen.storyboard */; };
 		2ACB8542EB64CCC43C8A6C70 /* HitTestingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97138187A5FF0744CFA10D39 /* HitTestingTests.swift */; };
 		2B46DF4BB8A064BEFA0C552E /* SearchResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECBD0B5346AB89FFA5A4C567 /* SearchResultsView.swift */; };
 		2B74C32A3DA95FCD0AEAA063 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 238D1BC52B46EF1EE811B1C2 /* libsqlite3.tbd */; };
 		2F1DFFF5E43327D07FC06F72 /* StreetSweepingData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F918729EE3FC1B5C228DD5C /* StreetSweepingData.swift */; };
-		30F32F3F024F0C3D8C9AB6FC /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_BBD40E04-7724-4871-88D7-DB0645F87D3D" /* LaunchScreen.storyboard */; };
+		3DFE77BC24C863C5B51BEAD9 /* ParkingDetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B04EC93ABE94DDB3F68FD2B /* ParkingDetectionService.swift */; };
 		4158AB6A8C7911682EFB1BA7 /* StreetRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435C724A0547DCF1B8116F1C /* StreetRepository.swift */; };
+		470BB6C71FC4EC7AF2D9736A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_7119B6A2-AD46-409D-B0DB-B600A71E7D7C" /* AppDelegate.swift */; };
 		4736C35D84A11D7188AAF6BB /* DatabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C9AFE35B91C540152709EBF /* DatabaseManager.swift */; };
-		47BE47DC974A1E0A26A76220 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_37A87E2A-AD19-46F8-9710-E98AD6E1CBE9" /* AppDelegate.swift */; };
 		4F4B516420145A85EDBD3762 /* MapHitTesting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 311AA702462DA0CDCF0F286B /* MapHitTesting.swift */; };
 		50A81F1A0D9B44267E48BA21 /* StreetDetailViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BB89833A27822D5C8374C34 /* StreetDetailViewController.swift */; };
+		52E8D34219735A5A84A2BF4C /* ParkingDetectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A76E0DFFBE1FD72EA0A4B74 /* ParkingDetectionTests.swift */; };
+		57ED7AEC711E09F5AFB0F51C /* sweeping_data_sf.json in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_87C754DA-1AB1-49FE-8B7C-4F3415332B30" /* sweeping_data_sf.json */; };
 		5CDB8D6B491270A1D02C8976 /* StreetRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EA553BD9B81FACEB7B49178 /* StreetRepositoryTests.swift */; };
+		61112AC72E3ABB8441557557 /* easystreet.db in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_24D2FE2E-7693-4A97-87C9-BD7E39A1C718" /* easystreet.db */; };
 		69A60DA970B6D0E66C294146 /* ParkingCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0CEA45D1E26341DDB7A90E4 /* ParkingCardView.swift */; };
+		6D8094C3C20879DEC79DF85F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_B6B8EE48-9E90-40FB-BFC2-EC3924B5B6D5" /* Assets.xcassets */; };
 		791157B5CBA6B552C21279AC /* ParkedCar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70BF8D06C110A60A014D36AF /* ParkedCar.swift */; };
 		79DD4DA6D66D1039CD2E66A3 /* convert_json_to_sqlite.py in Resources */ = {isa = PBXBuildFile; fileRef = 12D6D161E20F39DC24A42116 /* convert_json_to_sqlite.py */; };
+		7E088CC63A5419438D07E9E1 /* ParkingDetectionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7359A7792166C1CD9875800 /* ParkingDetectionState.swift */; };
 		93F209B5539A070AF0427BE2 /* OfflineBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3CF9E23C710430299EDF824 /* OfflineBannerView.swift */; };
-		97887D560BE636F6FC3A1BA8 /* easystreet.db in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_3B451308-21F0-404C-B530-3E9D4895C7EE" /* easystreet.db */; };
 		9EC1FF8D85124BC0F1E773E1 /* CountdownFormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14AB9912FB413A8153844D33 /* CountdownFormatterTests.swift */; };
-		A14E67DD043DC48D2B113B8D /* sweeping_data_sf.json in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_D24D151B-C85A-4FAA-A7B8-9CCD3B329B89" /* sweeping_data_sf.json */; };
 		A247C5D4FDF534753EC37179 /* SweepingRuleEngineStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC2B912A648F1F3E9A0872A1 /* SweepingRuleEngineStatusTests.swift */; };
 		B2A4B4294ABEF028734088FF /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 615862261A7305056A35C3D6 /* Network.framework */; };
 		B3C965968B88F7A46A6A9CDA /* StreetDetailTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 281EED4D40158316166BA6FB /* StreetDetailTests.swift */; };
@@ -42,8 +47,8 @@
 		DD9C322069BAEA41901715F9 /* DisclaimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D9690A088855FD41E0B7712 /* DisclaimerManager.swift */; };
 		ECDBB6540FAB77EB61D62D30 /* DatabaseManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F76A927B82B65CFDF3ED2D /* DatabaseManagerTests.swift */; };
 		F0946001359CB1BC1C646F50 /* HolidayCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2325A19C259C4130A6FABD5 /* HolidayCalculatorTests.swift */; };
+		F8FED7F1236C2CFDB9E7F74C /* easystreet.db-wal in Resources */ = {isa = PBXBuildFile; fileRef = "TEMP_FB8D301F-C659-4C58-86D3-F7F7418FD7BF" /* easystreet.db-wal */; };
 		F91BB1E359D467301BCAF76B /* MapColorStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D167FA1D3F383D1C71A106EF /* MapColorStatusTests.swift */; };
-		FC41199BA46C3621375DCA43 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_D6B138B4-090E-4375-9FA7-1142150794C4" /* SceneDelegate.swift */; };
 		FCA0FD8277DC99840AEE0300 /* SpatialIndexTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AC1A71D5438D1AA53C2A696 /* SpatialIndexTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -61,7 +66,7 @@
 		04F76A927B82B65CFDF3ED2D /* DatabaseManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManagerTests.swift; sourceTree = "<group>"; };
 		0AD045602739A4A3410D6A3B /* SweepingRuleEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SweepingRuleEngineTests.swift; sourceTree = "<group>"; };
 		0EA553BD9B81FACEB7B49178 /* StreetRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreetRepositoryTests.swift; sourceTree = "<group>"; };
-		0F8C57F542560F095A693733 /* EasyStreet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EasyStreet.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0F8C57F542560F095A693733 /* EasyStreet.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = EasyStreet.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		12D6D161E20F39DC24A42116 /* convert_json_to_sqlite.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = convert_json_to_sqlite.py; sourceTree = "<group>"; };
 		14AB9912FB413A8153844D33 /* CountdownFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountdownFormatterTests.swift; sourceTree = "<group>"; };
 		1B7CA662CB77CB7DA02DF5E1 /* CountdownFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountdownFormatter.swift; sourceTree = "<group>"; };
@@ -69,6 +74,7 @@
 		238D1BC52B46EF1EE811B1C2 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
 		281EED4D40158316166BA6FB /* StreetDetailTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreetDetailTests.swift; sourceTree = "<group>"; };
 		311AA702462DA0CDCF0F286B /* MapHitTesting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapHitTesting.swift; sourceTree = "<group>"; };
+		3B04EC93ABE94DDB3F68FD2B /* ParkingDetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingDetectionService.swift; sourceTree = "<group>"; };
 		3DB4AF1201F3D68B74354AD2 /* ConnectivityMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectivityMonitor.swift; sourceTree = "<group>"; };
 		435C724A0547DCF1B8116F1C /* StreetRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreetRepository.swift; sourceTree = "<group>"; };
 		470460C0212BE9AD00557E2A /* OverlayPipelineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayPipelineTests.swift; sourceTree = "<group>"; };
@@ -80,6 +86,7 @@
 		6F918729EE3FC1B5C228DD5C /* StreetSweepingData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreetSweepingData.swift; sourceTree = "<group>"; };
 		70BF8D06C110A60A014D36AF /* ParkedCar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkedCar.swift; sourceTree = "<group>"; };
 		785A8A505F1F7300484852EB /* ParkingRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingRepository.swift; sourceTree = "<group>"; };
+		7A76E0DFFBE1FD72EA0A4B74 /* ParkingDetectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingDetectionTests.swift; sourceTree = "<group>"; };
 		93AC530761EE1086B5E7FCDD /* MapViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapViewController.swift; sourceTree = "<group>"; };
 		97138187A5FF0744CFA10D39 /* HitTestingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HitTestingTests.swift; sourceTree = "<group>"; };
 		A5FF3E292621EE39E96BF933 /* ColorCodingAccuracyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorCodingAccuracyTests.swift; sourceTree = "<group>"; };
@@ -92,12 +99,16 @@
 		D0D3B302DE0A3FB2F31786DB /* EasyStreetTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = EasyStreetTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D167FA1D3F383D1C71A106EF /* MapColorStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapColorStatusTests.swift; sourceTree = "<group>"; };
 		ECBD0B5346AB89FFA5A4C567 /* SearchResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultsView.swift; sourceTree = "<group>"; };
-		"TEMP_37A87E2A-AD19-46F8-9710-E98AD6E1CBE9" /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		"TEMP_3B451308-21F0-404C-B530-3E9D4895C7EE" /* easystreet.db */ = {isa = PBXFileReference; lastKnownFileType = file; path = easystreet.db; sourceTree = "<group>"; };
-		"TEMP_BBD40E04-7724-4871-88D7-DB0645F87D3D" /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
-		"TEMP_D24D151B-C85A-4FAA-A7B8-9CCD3B329B89" /* sweeping_data_sf.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sweeping_data_sf.json; sourceTree = "<group>"; };
-		"TEMP_D6B138B4-090E-4375-9FA7-1142150794C4" /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
-		"TEMP_DBD3D8AC-9031-4412-A658-C7DC23DED983" /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F7359A7792166C1CD9875800 /* ParkingDetectionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingDetectionState.swift; sourceTree = "<group>"; };
+		"TEMP_02A28C6E-5A32-4D4D-9AF7-49ED330F47D9" /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		"TEMP_0C56950E-5E7D-4AE6-B71D-869978103D78" /* easystreet.db-shm */ = {isa = PBXFileReference; path = "easystreet.db-shm"; sourceTree = "<group>"; };
+		"TEMP_170E9718-6473-4CDB-A5D1-38D24F8AE409" /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		"TEMP_24D2FE2E-7693-4A97-87C9-BD7E39A1C718" /* easystreet.db */ = {isa = PBXFileReference; path = easystreet.db; sourceTree = "<group>"; };
+		"TEMP_5616E26C-DA1D-4332-8856-92CAFA74DEF5" /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		"TEMP_7119B6A2-AD46-409D-B0DB-B600A71E7D7C" /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		"TEMP_87C754DA-1AB1-49FE-8B7C-4F3415332B30" /* sweeping_data_sf.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sweeping_data_sf.json; sourceTree = "<group>"; };
+		"TEMP_B6B8EE48-9E90-40FB-BFC2-EC3924B5B6D5" /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		"TEMP_FB8D301F-C659-4C58-86D3-F7F7418FD7BF" /* easystreet.db-wal */ = {isa = PBXFileReference; path = "easystreet.db-wal"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -130,12 +141,12 @@
 				275B9FFFBDE239EC8ED1E45F /* Data */,
 				B70DCEFC42D6F724D48B4F0A /* EasyStreet */,
 				642021DD8584264E52913303 /* Models */,
+				C44538E13B1A82153AFA6D8E /* Services */,
 				DBD2479F37C57E55DACD75E8 /* tools */,
 				62F855B908F2BECFE2273D86 /* Utils */,
 				109BBBC6FA2FA5875CEAB48C /* Views */,
 				7825675030022747C9DDDD41 /* Frameworks */,
 				EFF42E369162A4F198FDF8D2 /* Products */,
-				2D5378822F39801A005C5340 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -147,19 +158,6 @@
 				435C724A0547DCF1B8116F1C /* StreetRepository.swift */,
 			);
 			path = Data;
-			sourceTree = "<group>";
-		};
-		2D5378822F39801A005C5340 /* Recovered References */ = {
-			isa = PBXGroup;
-			children = (
-				"TEMP_37A87E2A-AD19-46F8-9710-E98AD6E1CBE9" /* AppDelegate.swift */,
-				"TEMP_D6B138B4-090E-4375-9FA7-1142150794C4" /* SceneDelegate.swift */,
-				"TEMP_DBD3D8AC-9031-4412-A658-C7DC23DED983" /* Assets.xcassets */,
-				"TEMP_BBD40E04-7724-4871-88D7-DB0645F87D3D" /* LaunchScreen.storyboard */,
-				"TEMP_3B451308-21F0-404C-B530-3E9D4895C7EE" /* easystreet.db */,
-				"TEMP_D24D151B-C85A-4FAA-A7B8-9CCD3B329B89" /* sweeping_data_sf.json */,
-			);
-			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 		62F855B908F2BECFE2273D86 /* Utils */ = {
@@ -179,6 +177,7 @@
 			isa = PBXGroup;
 			children = (
 				70BF8D06C110A60A014D36AF /* ParkedCar.swift */,
+				F7359A7792166C1CD9875800 /* ParkingDetectionState.swift */,
 				6F918729EE3FC1B5C228DD5C /* StreetSweepingData.swift */,
 			);
 			path = Models;
@@ -222,6 +221,7 @@
 				D167FA1D3F383D1C71A106EF /* MapColorStatusTests.swift */,
 				470460C0212BE9AD00557E2A /* OverlayPipelineTests.swift */,
 				4B0FD1B83924F93F86CEE988 /* ParkedCarManagerTests.swift */,
+				7A76E0DFFBE1FD72EA0A4B74 /* ParkingDetectionTests.swift */,
 				5AC1A71D5438D1AA53C2A696 /* SpatialIndexTests.swift */,
 				281EED4D40158316166BA6FB /* StreetDetailTests.swift */,
 				0EA553BD9B81FACEB7B49178 /* StreetRepositoryTests.swift */,
@@ -229,6 +229,14 @@
 				0AD045602739A4A3410D6A3B /* SweepingRuleEngineTests.swift */,
 			);
 			path = EasyStreetTests;
+			sourceTree = "<group>";
+		};
+		C44538E13B1A82153AFA6D8E /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				3B04EC93ABE94DDB3F68FD2B /* ParkingDetectionService.swift */,
+			);
+			path = Services;
 			sourceTree = "<group>";
 		};
 		DBD2479F37C57E55DACD75E8 /* tools */ = {
@@ -246,6 +254,29 @@
 				D0D3B302DE0A3FB2F31786DB /* EasyStreetTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		"TEMP_677546F6-0959-4420-BF21-76D3429E8DE2" /* EasyStreet */ = {
+			isa = PBXGroup;
+			children = (
+				"TEMP_02A28C6E-5A32-4D4D-9AF7-49ED330F47D9" /* LaunchScreen.storyboard */,
+				"TEMP_24D2FE2E-7693-4A97-87C9-BD7E39A1C718" /* easystreet.db */,
+				"TEMP_B6B8EE48-9E90-40FB-BFC2-EC3924B5B6D5" /* Assets.xcassets */,
+				"TEMP_7119B6A2-AD46-409D-B0DB-B600A71E7D7C" /* AppDelegate.swift */,
+				"TEMP_0C56950E-5E7D-4AE6-B71D-869978103D78" /* easystreet.db-shm */,
+				"TEMP_FB8D301F-C659-4C58-86D3-F7F7418FD7BF" /* easystreet.db-wal */,
+				"TEMP_87C754DA-1AB1-49FE-8B7C-4F3415332B30" /* sweeping_data_sf.json */,
+				"TEMP_5616E26C-DA1D-4332-8856-92CAFA74DEF5" /* Info.plist */,
+				"TEMP_170E9718-6473-4CDB-A5D1-38D24F8AE409" /* SceneDelegate.swift */,
+				DBD2479F37C57E55DACD75E8 /* tools */,
+				62F855B908F2BECFE2273D86 /* Utils */,
+				642021DD8584264E52913303 /* Models */,
+				95B23ACF3A4690430D6470CD /* Controllers */,
+				275B9FFFBDE239EC8ED1E45F /* Data */,
+				109BBBC6FA2FA5875CEAB48C /* Views */,
+				C44538E13B1A82153AFA6D8E /* Services */,
+			);
+			path = EasyStreet;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -307,6 +338,7 @@
 			);
 			mainGroup = 223DDE377931B138E6EAB63D;
 			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -321,11 +353,13 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				07EE6279CC04941963F3D3D4 /* Assets.xcassets in Resources */,
-				30F32F3F024F0C3D8C9AB6FC /* LaunchScreen.storyboard in Resources */,
+				6D8094C3C20879DEC79DF85F /* Assets.xcassets in Resources */,
+				1F6D52AEB502463ADEADA5B3 /* LaunchScreen.storyboard in Resources */,
 				79DD4DA6D66D1039CD2E66A3 /* convert_json_to_sqlite.py in Resources */,
-				97887D560BE636F6FC3A1BA8 /* easystreet.db in Resources */,
-				A14E67DD043DC48D2B113B8D /* sweeping_data_sf.json in Resources */,
+				61112AC72E3ABB8441557557 /* easystreet.db in Resources */,
+				044C6ACCC18E2F322EFDFF01 /* easystreet.db-shm in Resources */,
+				F8FED7F1236C2CFDB9E7F74C /* easystreet.db-wal in Resources */,
+				57ED7AEC711E09F5AFB0F51C /* sweeping_data_sf.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -336,7 +370,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				47BE47DC974A1E0A26A76220 /* AppDelegate.swift in Sources */,
+				470BB6C71FC4EC7AF2D9736A /* AppDelegate.swift in Sources */,
 				C48F011340F43FA6330D098A /* ConnectivityMonitor.swift in Sources */,
 				B650238AF8F3A72FD843D940 /* CountdownFormatter.swift in Sources */,
 				4736C35D84A11D7188AAF6BB /* DatabaseManager.swift in Sources */,
@@ -347,8 +381,10 @@
 				93F209B5539A070AF0427BE2 /* OfflineBannerView.swift in Sources */,
 				791157B5CBA6B552C21279AC /* ParkedCar.swift in Sources */,
 				69A60DA970B6D0E66C294146 /* ParkingCardView.swift in Sources */,
+				3DFE77BC24C863C5B51BEAD9 /* ParkingDetectionService.swift in Sources */,
+				7E088CC63A5419438D07E9E1 /* ParkingDetectionState.swift in Sources */,
 				1D94599A73A6C1070DE46F4E /* ParkingRepository.swift in Sources */,
-				FC41199BA46C3621375DCA43 /* SceneDelegate.swift in Sources */,
+				18BE94117CEE73FAD6E2771D /* SceneDelegate.swift in Sources */,
 				2B46DF4BB8A064BEFA0C552E /* SearchResultsView.swift in Sources */,
 				50A81F1A0D9B44267E48BA21 /* StreetDetailViewController.swift in Sources */,
 				4158AB6A8C7911682EFB1BA7 /* StreetRepository.swift in Sources */,
@@ -369,6 +405,7 @@
 				F91BB1E359D467301BCAF76B /* MapColorStatusTests.swift in Sources */,
 				130945C9D02C198D1FB7B691 /* OverlayPipelineTests.swift in Sources */,
 				0BEC79FC7E7CAFC7B2D0282B /* ParkedCarManagerTests.swift in Sources */,
+				52E8D34219735A5A84A2BF4C /* ParkingDetectionTests.swift in Sources */,
 				FCA0FD8277DC99840AEE0300 /* SpatialIndexTests.swift in Sources */,
 				B3C965968B88F7A46A6A9CDA /* StreetDetailTests.swift in Sources */,
 				5CDB8D6B491270A1D02C8976 /* StreetRepositoryTests.swift in Sources */,
@@ -467,7 +504,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = 4LMG5HM5UV;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -566,7 +602,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = 4LMG5HM5UV;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

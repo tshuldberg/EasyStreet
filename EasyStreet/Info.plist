@@ -51,5 +51,13 @@
     </array>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>EasyStreet needs your location to show you nearby street sweeping schedules and to remember where you parked your car.</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>EasyStreet uses your location in the background to detect when you've parked and alert you about street sweeping near your car.</string>
+    <key>NSMotionUsageDescription</key>
+    <string>EasyStreet uses motion data to detect when you've parked your car so it can remind you to save your spot.</string>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>location</string>
+    </array>
 </dict>
 </plist> 

@@ -1,6 +1,7 @@
 import UIKit
 import MapKit
 import CoreLocation
+import CoreMotion
 
 class MapViewController: UIViewController {
 
@@ -173,6 +174,19 @@ class MapViewController: UIViewController {
 
         // Check if we have a previously parked car
         checkForParkedCar()
+
+        // Start auto-detect parking if enabled
+        if ParkingDetectionService.shared.isEnabled {
+            ParkingDetectionService.shared.start()
+        }
+
+        // Observe auto-detect setting changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(autoDetectSettingChanged),
+            name: UserDefaults.didChangeNotification,
+            object: nil
+        )
 
         // Register for parked car status change notifications
         NotificationCenter.default.addObserver(
@@ -1165,6 +1179,15 @@ class MapViewController: UIViewController {
         return minimumDistance <= thresholdMeters
     }
 
+    @objc private func autoDetectSettingChanged() {
+        let enabled = ParkingDetectionService.shared.isEnabled
+        if enabled {
+            ParkingDetectionService.shared.start()
+        } else {
+            ParkingDetectionService.shared.stop()
+        }
+    }
+
     @objc private func connectivityChanged() {
         if ConnectivityMonitor.shared.isConnected {
             offlineBanner.hide()
@@ -1477,6 +1500,9 @@ private final class NotificationLeadTimeSettingsViewController: UITableViewContr
     private var selected: Set<Int>
     private let onSave: ([Int]) -> Void
 
+    private let autoDetectSwitch = UISwitch()
+    private let locationManager = CLLocationManager()
+
     init(options: [Int], selected: [Int], onSave: @escaping ([Int]) -> Void) {
         self.options = options.sorted()
         self.selected = Set(selected)
@@ -1493,8 +1519,9 @@ private final class NotificationLeadTimeSettingsViewController: UITableViewContr
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Reminder Lead Times"
+        title = "Settings"
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "LeadOptionCell")
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "SwitchCell")
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             barButtonSystemItem: .cancel,
             target: self,
@@ -1505,21 +1532,41 @@ private final class NotificationLeadTimeSettingsViewController: UITableViewContr
             target: self,
             action: #selector(doneTapped)
         )
+
+        autoDetectSwitch.isOn = ParkingDetectionService.shared.isEnabled
+        autoDetectSwitch.addTarget(self, action: #selector(autoDetectToggled(_:)), for: .valueChanged)
     }
 
+    // MARK: - Sections: 0 = Auto-Detect, 1 = Lead Times
+
     override func numberOfSections(in tableView: UITableView) -> Int {
-        1
+        2
     }
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        options.count
+        section == 0 ? 1 : options.count
+    }
+
+    override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        section == 0 ? "Auto-Detect Parking" : "Reminder Lead Times"
     }
 
     override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
-        "Select one or more reminders before sweeping starts."
+        if section == 0 {
+            return "Automatically detect when you park and prompt to save your spot. Requires background location access."
+        }
+        return "Select one or more reminders before sweeping starts."
     }
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        if indexPath.section == 0 {
+            let cell = tableView.dequeueReusableCell(withIdentifier: "SwitchCell", for: indexPath)
+            cell.textLabel?.text = "Auto-Detect Parking"
+            cell.accessoryView = autoDetectSwitch
+            cell.selectionStyle = .none
+            return cell
+        }
+
         let cell = tableView.dequeueReusableCell(withIdentifier: "LeadOptionCell", for: indexPath)
         let minutes = options[indexPath.row]
         cell.textLabel?.text = Self.label(for: minutes)
@@ -1528,6 +1575,7 @@ private final class NotificationLeadTimeSettingsViewController: UITableViewContr
     }
 
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        guard indexPath.section == 1 else { return }
         let minutes = options[indexPath.row]
         if selected.contains(minutes) {
             if selected.count > 1 {
@@ -1539,6 +1587,22 @@ private final class NotificationLeadTimeSettingsViewController: UITableViewContr
         tableView.reloadRows(at: [indexPath], with: .automatic)
         tableView.deselectRow(at: indexPath, animated: true)
     }
+
+    // MARK: - Auto-Detect Toggle
+
+    @objc private func autoDetectToggled(_ sender: UISwitch) {
+        if sender.isOn {
+            let status = locationManager.authorizationStatus
+            if status != .authorizedAlways {
+                locationManager.requestAlwaysAuthorization()
+            }
+            ParkingDetectionService.shared.isEnabled = true
+        } else {
+            ParkingDetectionService.shared.isEnabled = false
+        }
+    }
+
+    // MARK: - Actions
 
     @objc private func cancelTapped() {
         dismiss(animated: true)
