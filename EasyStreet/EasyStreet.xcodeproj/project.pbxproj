@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -66,7 +66,7 @@
 		04F76A927B82B65CFDF3ED2D /* DatabaseManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManagerTests.swift; sourceTree = "<group>"; };
 		0AD045602739A4A3410D6A3B /* SweepingRuleEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SweepingRuleEngineTests.swift; sourceTree = "<group>"; };
 		0EA553BD9B81FACEB7B49178 /* StreetRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreetRepositoryTests.swift; sourceTree = "<group>"; };
-		0F8C57F542560F095A693733 /* EasyStreet.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = EasyStreet.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0F8C57F542560F095A693733 /* EasyStreet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EasyStreet.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		12D6D161E20F39DC24A42116 /* convert_json_to_sqlite.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = convert_json_to_sqlite.py; sourceTree = "<group>"; };
 		14AB9912FB413A8153844D33 /* CountdownFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountdownFormatterTests.swift; sourceTree = "<group>"; };
 		1B7CA662CB77CB7DA02DF5E1 /* CountdownFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountdownFormatter.swift; sourceTree = "<group>"; };
@@ -101,14 +101,13 @@
 		ECBD0B5346AB89FFA5A4C567 /* SearchResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultsView.swift; sourceTree = "<group>"; };
 		F7359A7792166C1CD9875800 /* ParkingDetectionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingDetectionState.swift; sourceTree = "<group>"; };
 		"TEMP_02A28C6E-5A32-4D4D-9AF7-49ED330F47D9" /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
-		"TEMP_0C56950E-5E7D-4AE6-B71D-869978103D78" /* easystreet.db-shm */ = {isa = PBXFileReference; path = "easystreet.db-shm"; sourceTree = "<group>"; };
+		"TEMP_0C56950E-5E7D-4AE6-B71D-869978103D78" /* easystreet.db-shm */ = {isa = PBXFileReference; lastKnownFileType = file; path = "easystreet.db-shm"; sourceTree = "<group>"; };
 		"TEMP_170E9718-6473-4CDB-A5D1-38D24F8AE409" /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
-		"TEMP_24D2FE2E-7693-4A97-87C9-BD7E39A1C718" /* easystreet.db */ = {isa = PBXFileReference; path = easystreet.db; sourceTree = "<group>"; };
-		"TEMP_5616E26C-DA1D-4332-8856-92CAFA74DEF5" /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		"TEMP_24D2FE2E-7693-4A97-87C9-BD7E39A1C718" /* easystreet.db */ = {isa = PBXFileReference; lastKnownFileType = file; path = easystreet.db; sourceTree = "<group>"; };
 		"TEMP_7119B6A2-AD46-409D-B0DB-B600A71E7D7C" /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		"TEMP_87C754DA-1AB1-49FE-8B7C-4F3415332B30" /* sweeping_data_sf.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sweeping_data_sf.json; sourceTree = "<group>"; };
 		"TEMP_B6B8EE48-9E90-40FB-BFC2-EC3924B5B6D5" /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		"TEMP_FB8D301F-C659-4C58-86D3-F7F7418FD7BF" /* easystreet.db-wal */ = {isa = PBXFileReference; path = "easystreet.db-wal"; sourceTree = "<group>"; };
+		"TEMP_FB8D301F-C659-4C58-86D3-F7F7418FD7BF" /* easystreet.db-wal */ = {isa = PBXFileReference; lastKnownFileType = text; path = "easystreet.db-wal"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -147,6 +146,7 @@
 				109BBBC6FA2FA5875CEAB48C /* Views */,
 				7825675030022747C9DDDD41 /* Frameworks */,
 				EFF42E369162A4F198FDF8D2 /* Products */,
+				2DE70AC22F3C525200ACC8F0 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -158,6 +158,21 @@
 				435C724A0547DCF1B8116F1C /* StreetRepository.swift */,
 			);
 			path = Data;
+			sourceTree = "<group>";
+		};
+		2DE70AC22F3C525200ACC8F0 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				"TEMP_7119B6A2-AD46-409D-B0DB-B600A71E7D7C" /* AppDelegate.swift */,
+				"TEMP_170E9718-6473-4CDB-A5D1-38D24F8AE409" /* SceneDelegate.swift */,
+				"TEMP_B6B8EE48-9E90-40FB-BFC2-EC3924B5B6D5" /* Assets.xcassets */,
+				"TEMP_02A28C6E-5A32-4D4D-9AF7-49ED330F47D9" /* LaunchScreen.storyboard */,
+				"TEMP_24D2FE2E-7693-4A97-87C9-BD7E39A1C718" /* easystreet.db */,
+				"TEMP_0C56950E-5E7D-4AE6-B71D-869978103D78" /* easystreet.db-shm */,
+				"TEMP_FB8D301F-C659-4C58-86D3-F7F7418FD7BF" /* easystreet.db-wal */,
+				"TEMP_87C754DA-1AB1-49FE-8B7C-4F3415332B30" /* sweeping_data_sf.json */,
+			);
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 		62F855B908F2BECFE2273D86 /* Utils */ = {
@@ -256,29 +271,6 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		"TEMP_677546F6-0959-4420-BF21-76D3429E8DE2" /* EasyStreet */ = {
-			isa = PBXGroup;
-			children = (
-				"TEMP_02A28C6E-5A32-4D4D-9AF7-49ED330F47D9" /* LaunchScreen.storyboard */,
-				"TEMP_24D2FE2E-7693-4A97-87C9-BD7E39A1C718" /* easystreet.db */,
-				"TEMP_B6B8EE48-9E90-40FB-BFC2-EC3924B5B6D5" /* Assets.xcassets */,
-				"TEMP_7119B6A2-AD46-409D-B0DB-B600A71E7D7C" /* AppDelegate.swift */,
-				"TEMP_0C56950E-5E7D-4AE6-B71D-869978103D78" /* easystreet.db-shm */,
-				"TEMP_FB8D301F-C659-4C58-86D3-F7F7418FD7BF" /* easystreet.db-wal */,
-				"TEMP_87C754DA-1AB1-49FE-8B7C-4F3415332B30" /* sweeping_data_sf.json */,
-				"TEMP_5616E26C-DA1D-4332-8856-92CAFA74DEF5" /* Info.plist */,
-				"TEMP_170E9718-6473-4CDB-A5D1-38D24F8AE409" /* SceneDelegate.swift */,
-				DBD2479F37C57E55DACD75E8 /* tools */,
-				62F855B908F2BECFE2273D86 /* Utils */,
-				642021DD8584264E52913303 /* Models */,
-				95B23ACF3A4690430D6470CD /* Controllers */,
-				275B9FFFBDE239EC8ED1E45F /* Data */,
-				109BBBC6FA2FA5875CEAB48C /* Views */,
-				C44538E13B1A82153AFA6D8E /* Services */,
-			);
-			path = EasyStreet;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -338,7 +330,6 @@
 			);
 			mainGroup = 223DDE377931B138E6EAB63D;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -504,6 +495,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 4LMG5HM5UV;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -602,6 +594,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 4LMG5HM5UV;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
